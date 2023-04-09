@@ -13,7 +13,7 @@ from pytorch_lightning import seed_everything
 
 from nn_core.serialization import NNCheckpointIO
 
-from la.run import run
+from la.run_prelim_exp import run
 
 logging.basicConfig(force=True, level=logging.DEBUG)
 

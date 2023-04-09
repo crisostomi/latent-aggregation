@@ -1,0 +1,48 @@
+output_path: ${oc.env:PROJECT_ROOT}/data/embedded_cifar100_tasks
+
+data:
+  _target_: la.data.aggr_exp_datamodule.MyDataModule
+  data_path: ${oc.env:PROJECT_ROOT}/data/cifar100_tasks
+
+  datasets:
+    train:
+      _target_: la.data.aggr_exp_dataset.MyDataset
+      samples: ???
+      split: ???
+
+    val:
+      _target_: la.data.aggr_exp_dataset.MyDataset
+      samples: ???
+      split: ???
+
+  gpus: ${train.trainer.gpus}
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
+
+  batch_size:
+    train: 512
+    val: 128
+    test: 128
+
+  val_percentage: 0.1
+
+module:
+  _target_: la.pl_modules.pl_module.MyLightningModule
+
+  models:
+    vanilla:
+      _target_: la.modules.CNN.CNN
+
+  optimizer:
+    _target_: torch.optim.Adam
+
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0
+    last_epoch: -1
+    verbose: False

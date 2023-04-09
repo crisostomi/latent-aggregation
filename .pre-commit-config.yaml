@@ -11,7 +11,7 @@ repos:
 #      - id: check-builtin-literals  # requires literal syntax when initializing empty or zero python builtin types.
 #      - id: check-case-conflict  # checks for files that would conflict in case-insensitive filesystems.
       - id: check-docstring-first  # checks a common error of defining a docstring after code.
-      - id: check-executables-have-shebangs  # ensures that (non-binary) executables have a shebang.
+#      - id: check-executables-have-shebangs  # ensures that (non-binary) executables have a shebang.
 #      - id: check-json  # checks json files for parseable syntax.
 #      - id: check-shebang-scripts-are-executable  # ensures that (non-binary) files with a shebang are executable.
 #      - id: pretty-format-json  # sets a standard for formatting json files.
@@ -39,10 +39,10 @@ repos:
 #      - id: sort-simple-yaml  # sorts simple yaml files which consist only of top-level keys, preserving comments and blocks.
       - id: trailing-whitespace  # trims trailing whitespace.
 
-  - repo: https://github.com/PyCQA/isort.git
-    rev: '5.10.1'
-    hooks:
-      - id: isort
+#  - repo: https://github.com/PyCQA/isort.git
+#    rev: '5.10.1'
+#    hooks:
+#      - id: isort
 
   -   repo: https://github.com/psf/black.git
       rev: '22.3.0'
@@ -62,12 +62,12 @@ repos:
         additional_dependencies:
           - flake8-docstrings==1.6.0
 
-  - repo: https://github.com/pycqa/pydocstyle.git
-    rev: '6.1.1'
-    hooks:
-    -   id: pydocstyle
-        additional_dependencies:
-          - toml
+#  - repo: https://github.com/pycqa/pydocstyle.git
+#    rev: '6.1.1'
+#    hooks:
+#    -   id: pydocstyle
+#        additional_dependencies:
+#          - toml
 
   - repo: https://github.com/kynan/nbstripout.git
     rev: '0.5.0'

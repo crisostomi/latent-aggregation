@@ -2,13 +2,11 @@
 seed_index: 0
 deterministic: False
 
-# PyTorch Lightning Trainer https://pytorch-lightning.readthedocs.io/en/stable/common/trainer.html
 trainer:
-  fast_dev_run: False # Enable this for debug purposes
+  fast_dev_run: False
   gpus: 1
   precision: 32
-  max_epochs: 3
-  max_steps: 10000
+  max_epochs: 50
   accumulate_grad_batches: 1
   num_sanity_val_steps: 2
   gradient_clip_val: 10.0
@@ -17,7 +15,7 @@ trainer:
 
 restore:
   ckpt_or_run_path: null
-  mode: continue # null, finetune, hotstart, continue
+  mode: null # null, finetune, hotstart, continue
 
 monitor:
   metric: 'loss/val'
@@ -25,7 +23,7 @@ monitor:
 
 callbacks:
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    patience: 42
+    patience: 5
     verbose: False
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
@@ -57,6 +55,6 @@ logging:
     mode: 'online'
     tags: ${core.tags}
 
-  wandb_watch:
-    log: 'all'
-    log_freq: 100
+#  wandb_watch:
+#    log: 'all'
+#    log_freq: 100

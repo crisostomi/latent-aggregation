@@ -15,9 +15,17 @@ from nn_core.serialization import NNCheckpointIO
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
-from la.data.datamodule import MetaData
+from la.data.prelim_exp_datamodule import MetaData
 
 pylogger = logging.getLogger(__name__)
+
+
+def set_cfg_fast_dev_run(cfg):
+    pylogger.info(f"Debug mode <{cfg.train.trainer.fast_dev_run=}>. Forcing debugger friendly configuration!")
+    cfg.train.trainer.gpus = 0
+    cfg.nn.data.num_workers.train = 0
+    cfg.nn.data.num_workers.val = 0
+    cfg.nn.data.num_workers.test = 0
 
 
 def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
@@ -52,16 +60,10 @@ def run(cfg: DictConfig) -> str:
 
     fast_dev_run: bool = cfg.train.trainer.fast_dev_run
     if fast_dev_run:
-        pylogger.info(f"Debug mode <{cfg.train.trainer.fast_dev_run=}>. Forcing debugger friendly configuration!")
-        # Debuggers don't like GPUs nor multiprocessing
-        cfg.train.trainer.gpus = 0
-        cfg.nn.data.num_workers.train = 0
-        cfg.nn.data.num_workers.val = 0
-        cfg.nn.data.num_workers.test = 0
+        set_cfg_fast_dev_run(cfg)
 
     cfg.core.tags = enforce_tags(cfg.core.get("tags", None))
 
-    # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
 
@@ -69,11 +71,9 @@ def run(cfg: DictConfig) -> str:
     if metadata is None:
         pylogger.warning(f"No 'metadata' attribute found in datamodule <{datamodule.__class__.__name__}>")
 
-    # Instantiate model
     pylogger.info(f"Instantiating <{cfg.nn.module['_target_']}>")
     model: pl.LightningModule = hydra.utils.instantiate(cfg.nn.module, _recursive_=False, metadata=metadata)
 
-    # Instantiate the callbacks
     template_core: NNTemplateCore = NNTemplateCore(
         restore_cfg=cfg.train.get("restore", None),
     )
@@ -109,7 +109,7 @@ def run(cfg: DictConfig) -> str:
     return logger.run_dir
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="default")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="prelim_exp.yaml")
 def main(cfg: omegaconf.DictConfig):
     run(cfg)
 

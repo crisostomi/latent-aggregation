@@ -10,7 +10,7 @@ from nn_core.serialization import NNCheckpointIO
 from tests.conftest import load_checkpoint
 
 from la.pl_modules.pl_module import MyLightningModule
-from la.run import run
+from la.run_prelim_exp import run
 
 
 def test_load_checkpoint(run_trainings_not_dry: str, cfg_all_not_dry: DictConfig) -> None:

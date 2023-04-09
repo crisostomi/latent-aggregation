@@ -4,7 +4,7 @@ from pytest import TempPathFactory
 from nn_core.serialization import NNCheckpointIO
 from tests.conftest import TRAIN_MAX_NSTEPS, get_checkpoint_path, load_checkpoint
 
-from la.run import run
+from la.run_prelim_exp import run
 
 
 def test_resume(run_trainings_not_dry: str, cfg_all_not_dry: DictConfig, tmp_path_factory: TempPathFactory) -> None:

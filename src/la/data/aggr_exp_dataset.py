@@ -1,36 +1,25 @@
+import logging
+
 import hydra
 import omegaconf
-from torch.utils.data import Dataset
-from torchvision.datasets import FashionMNIST
-
 from nn_core.common import PROJECT_ROOT
-from nn_core.nn_types import Split
+from torch.utils.data import Dataset
+
+pylogger = logging.getLogger()
 
 
 class MyDataset(Dataset):
-    def __init__(self, split: Split, **kwargs):
+    def __init__(self, split, samples, **kwargs):
         super().__init__()
-        self.split: Split = split
-
-        # example
-        self.mnist = FashionMNIST(
-            kwargs["path"],
-            train=split == "train",
-            download=True,
-            transform=kwargs["transform"],
-        )
-
-    @property
-    def class_vocab(self):
-        return self.mnist.class_to_idx
+        self.split = split
+        self.samples = samples
 
     def __len__(self) -> int:
-        # example
-        return len(self.mnist)
+        return len(self.samples)
 
     def __getitem__(self, index: int):
-        # example
-        return self.mnist[index]
+        sample, label = self.samples[index]
+        return {"x": sample, "y": label}
 
     def __repr__(self) -> str:
         return f"MyDataset({self.split=}, n_instances={len(self)})"
