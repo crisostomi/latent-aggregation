@@ -82,7 +82,7 @@ def run(cfg: DictConfig) -> str:
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.module, _recursive_=False, class_vocab=task_class_vocab
+            cfg.nn.module, _recursive_=False, class_vocab=task_class_vocab, model=cfg.nn.module.model
         )
 
         datamodule.task_ind = task_ind

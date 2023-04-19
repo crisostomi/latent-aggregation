@@ -7,11 +7,11 @@ import pytorch_lightning as pl
 import torch
 import torch.nn.functional as F
 import torchmetrics
+from hydra.utils import instantiate
 from nn_core.common import PROJECT_ROOT
 from nn_core.model_logging import NNLogger
+from omegaconf import DictConfig
 from torch.optim import Optimizer
-
-from la.modules.module import CNN
 
 pylogger = logging.getLogger(__name__)
 
@@ -19,7 +19,7 @@ pylogger = logging.getLogger(__name__)
 class MyLightningModule(pl.LightningModule):
     logger: NNLogger
 
-    def __init__(self, class_vocab, *args, **kwargs) -> None:
+    def __init__(self, class_vocab, model: DictConfig, *args, **kwargs) -> None:
         super().__init__()
 
         # Populate self.hparams with args and kwargs automagically!
@@ -35,10 +35,7 @@ class MyLightningModule(pl.LightningModule):
         self.val_accuracy = metric.clone()
         self.test_accuracy = metric.clone()
 
-        self.model = CNN(num_classes=num_classes)
-
-        # efficient_net: EfficientNet = timm.create_model('efficientnet_b0', pretrained=True, num_classes=num_classes)
-        # self.model = MyEfficientNet(efficient_net, pre_head_dim=512)
+        self.model = instantiate(model, num_classes=num_classes)
 
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         """Method for the forward pass.

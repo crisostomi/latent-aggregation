@@ -2,7 +2,7 @@ from torch import nn
 
 
 class CNN(nn.Module):
-    def __init__(self, num_classes: int):
+    def __init__(self, num_classes: int, *args, **kwargs):
         super(CNN, self).__init__()
         self.model = nn.Sequential(
             nn.Conv2d(in_channels=3, out_channels=16, kernel_size=5, stride=1, padding=2),

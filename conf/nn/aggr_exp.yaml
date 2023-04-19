@@ -1,4 +1,5 @@
-output_path: ${oc.env:PROJECT_ROOT}/data/embedded_cifar100_tasks
+dataset_name: cifar100 # cifar100 or tiny_imagenet
+output_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/embedded/
 
 data:
   _target_: la.data.aggr_exp_datamodule.MyDataModule
@@ -23,7 +24,7 @@ data:
     test: 8
 
   batch_size:
-    train: 1028
+    train: 128
     val: 128
     test: 128
 
@@ -32,17 +33,17 @@ data:
 module:
   _target_: la.pl_modules.pl_module.MyLightningModule
 
-  models:
-    vanilla:
-      _target_: la.modules.CNN.CNN
+  model:
+    _target_: la.modules.efficient_net.MyEfficientNet # la.modules.vanilla_cnn.CNN, la.modules.efficient_net.MyEfficientNet
+    pre_head_dim: 128
 
   optimizer:
     _target_: torch.optim.Adam
 
-  lr_scheduler:
-    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
-    T_0: 10
-    T_mult: 2
-    eta_min: 0
-    last_epoch: -1
-    verbose: False
+#  lr_scheduler:
+#    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+#    T_0: 10
+#    T_mult: 2
+#    eta_min: 0
+#    last_epoch: -1
+#    verbose: False
