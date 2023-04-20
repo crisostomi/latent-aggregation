@@ -1,0 +1,8 @@
+defaults:
+  - dataset: tiny_imagenet
+
+num_shared_classes: 100
+num_novel_classes_per_task: 20
+
+seed: 42
+use_cached: true

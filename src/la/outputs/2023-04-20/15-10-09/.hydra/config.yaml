@@ -1,0 +1,12 @@
+dataset:
+  name: cifar100
+  ref: cifar100
+  train_split: train
+  test_split: test
+  label: fine_label
+  num_train_samples_per_class: 500
+  num_test_samples_per_class: 100
+num_shared_classes: 100
+num_novel_classes_per_task: 20
+seed: 42
+use_cached: true

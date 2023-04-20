@@ -1,9 +1,11 @@
 dataset_name: cifar100 # cifar100 or tiny_imagenet
-output_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/embedded/
+num_shared_classes: 80
+num_novel_classes: 5
+output_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/S${nn.num_shared_classes}_N${nn.num_novel_classes}
 
 data:
   _target_: la.data.aggr_exp_datamodule.MyDataModule
-  data_path: ${oc.env:PROJECT_ROOT}/data/cifar100_tasks
+  data_path: ${nn.output_path}
 
   datasets:
     train:
@@ -39,7 +41,6 @@ module:
 
   optimizer:
     _target_: torch.optim.Adam
-
 #  lr_scheduler:
 #    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
 #    T_0: 10
