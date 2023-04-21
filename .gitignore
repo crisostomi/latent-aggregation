@@ -223,3 +223,4 @@ fabric.properties
 /data
 /notebooks/checkpoints/
 src/la/outputs/
+outputs/
