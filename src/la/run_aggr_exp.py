@@ -1,19 +1,17 @@
 import logging
+import os
 from typing import List, Optional
 
 import hydra
 import omegaconf
 import pytorch_lightning as pl
-import torch
-from datasets import Dataset
-from omegaconf import DictConfig, ListConfig
-from pytorch_lightning import Callback
-
 from nn_core.callbacks import NNTemplateCore
 from nn_core.common import PROJECT_ROOT
 from nn_core.common.utils import enforce_tags, seed_index_everything
 from nn_core.model_logging import NNLogger
 from nn_core.serialization import NNCheckpointIO
+from omegaconf import DictConfig, ListConfig
+from pytorch_lightning import Callback
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
@@ -73,7 +71,6 @@ def run(cfg: DictConfig) -> str:
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
     for task_ind in range(num_tasks + 1):
-
         seed_index_everything(cfg.train)
 
         # Instantiate model
@@ -82,7 +79,10 @@ def run(cfg: DictConfig) -> str:
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.module, _recursive_=False, class_vocab=task_class_vocab, model=cfg.nn.module.model
+            cfg.nn.module,
+            _recursive_=False,
+            class_vocab=task_class_vocab,
+            model=cfg.nn.module.model,
         )
 
         datamodule.task_ind = task_ind
@@ -108,7 +108,11 @@ def run(cfg: DictConfig) -> str:
         )
 
         pylogger.info("Starting training!")
-        trainer.fit(model=model, datamodule=datamodule, ckpt_path=template_core.trainer_ckpt_path)
+        trainer.fit(
+            model=model,
+            datamodule=datamodule,
+            ckpt_path=template_core.trainer_ckpt_path,
+        )
 
         if fast_dev_run:
             pylogger.info("Skipping testing in 'fast_dev_run' mode!")
@@ -124,29 +128,25 @@ def run(cfg: DictConfig) -> str:
         # embed all the samples with the trained model
         model.eval()
 
-        training_samples: Dataset = datamodule.data[f"task_{task_ind}_train"]
-        test_samples: Dataset = datamodule.data[f"task_{task_ind}_test"]
-        training_samples.set_format(type="torch")
-        test_samples.set_format(type="torch")
-
-        def preprocess(x):
-            return torch.permute(x, (0, 3, 1, 2)).float() / 255.0
-
-        # training_samples = training_samples.map(lambda x: {'embedding': model.model.forward_pre_head(preprocess(x['img'])).detach().numpy()},
-        #                                         batched=True)
-
-        # test_samples = test_samples.map(lambda x: {'embedding': model.model.forward_pre_head(preprocess(x['img'])).detach().numpy()},
-        #                                         batched=True)
+        training_samples = datamodule.data[f"task_{task_ind}_train"]
+        test_samples = datamodule.data[f"task_{task_ind}_test"]
 
         training_samples = training_samples.map(
-            lambda x: {"embedding": model(preprocess(x["img"]))["embeds"].detach().numpy()}, batched=True
+            lambda x: {
+                "embedding": model(x["x"])["embeds"].detach().numpy(),
+            },
+            batched=True,
         )
         test_samples = test_samples.map(
-            lambda x: {"embedding": model(preprocess(x["img"]))["embeds"].detach().numpy()}, batched=True
+            lambda x: {"embedding": model(x["x"])["embeds"].detach().numpy()},
+            batched=True,
         )
 
         datamodule.data[f"task_{task_ind}_train"] = training_samples
         datamodule.data[f"task_{task_ind}_test"] = test_samples
+
+    if not os.path.exists(cfg.nn.output_path):
+        os.makedirs(cfg.nn.output_path)
 
     datamodule.data.save_to_disk(cfg.nn.output_path)
 

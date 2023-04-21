@@ -10,6 +10,7 @@ from datasets import (
     load_from_disk,
     Dataset,
     concatenate_datasets,
+    Value,
 )
 from nn_core.common import PROJECT_ROOT
 from omegaconf import DictConfig, omegaconf
@@ -25,11 +26,25 @@ def run(cfg: DictConfig):
 
     dataset = load_data(cfg)
 
-    # add ids
-    dataset["train"] = dataset["train"].map(lambda row, ind: {"id": ind}, batched=True, with_indices=True)
-    dataset["test"] = dataset["test"].map(lambda row, ind: {"id": ind}, batched=True, with_indices=True)
+    # standardize label key and image key
+    dataset = dataset.map(
+        lambda x: {"fine_label": x[cfg.dataset.label_key]},
+        remove_columns=[cfg.dataset.label_key],
+    )
+    dataset = dataset.map(
+        lambda x: {"img": x[cfg.dataset.image_key]},
+        batched=True,
+        remove_columns=[cfg.dataset.image_key],
+    )
 
-    all_classes = dataset["train"].features[cfg.dataset.label_key].names
+    # add ids
+    dataset = dataset.map(lambda row, ind: {"id": ind}, batched=True, with_indices=True)
+
+    if isinstance(dataset["train"].features["fine_label"], Value):
+        all_classes = [str(class_id) for class_id in range(cfg.dataset.num_classes)]
+    else:
+        all_classes = dataset["train"].features["fine_label"].names
+
     num_classes = len(all_classes)
 
     all_classes_ids = [id for id, _ in enumerate(all_classes)]
@@ -53,8 +68,8 @@ def run(cfg: DictConfig):
 
     global_to_local_class_mappings["task_0"] = {class_str_to_id[c]: i for i, c in enumerate(all_classes)}
 
-    shared_train_samples = dataset["train"].filter(lambda x: x[cfg.dataset.label_key] in shared_classes)
-    shared_test_samples = dataset["test"].filter(lambda x: x[cfg.dataset.label_key] in shared_classes)
+    shared_train_samples = dataset["train"].filter(lambda x: x["fine_label"] in shared_classes)
+    shared_test_samples = dataset["test"].filter(lambda x: x["fine_label"] in shared_classes)
 
     for i in range(1, num_tasks + 1):
         (non_shared_classes, task_test_samples, task_train_samples, global_to_local_class_map,) = prepare_task(
@@ -138,7 +153,7 @@ def prepare_task(
     :param shared_train_samples:
     :return:
     """
-    label_key = cfg.dataset.label
+    label_key = "fine_label"
     task_novel_classes = set(random.sample(list(non_shared_classes), k=cfg.num_novel_classes_per_task))
 
     # remove the classes sampled for this task so that all tasks have disjoint novel classes

@@ -1,11 +1,12 @@
-dataset_name: cifar100 # cifar100 or tiny_imagenet
-num_shared_classes: 80
-num_novel_classes: 5
-output_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/S${nn.num_shared_classes}_N${nn.num_novel_classes}
+dataset_name: tiny_imagenet # cifar100 or tiny_imagenet
+num_shared_classes: 100
+num_novel_classes: 20
+data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/S${nn.num_shared_classes}_N${nn.num_novel_classes}
+output_path: ${nn.data_path}_embedded
 
 data:
   _target_: la.data.aggr_exp_datamodule.MyDataModule
-  data_path: ${nn.output_path}
+  data_path: ${nn.data_path}
 
   datasets:
     train:

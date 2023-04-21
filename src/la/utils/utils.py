@@ -1,15 +1,33 @@
+import json
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, List
 
 from datasets import DatasetDict
 
-import json
+
+def preprocess_img(x):
+    """
+    (H, W, C) --> (C, H, W)
+    :param x: (H, W, C)
+    :return:
+    """
+    if x.ndim == 2:
+        x = x.unsqueeze(-1)
+        x = x.repeat_interleave(3, axis=2)
+
+    if x.ndim == 4:
+        x = x.permute(0, 3, 1, 2)
+    else:
+        x = x.permute(2, 0, 1)
+
+    return x.float() / 255.0
 
 
 class MyDatasetDict(DatasetDict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        self.data_keys = None
 
     def save_to_disk(
         self,
@@ -33,6 +51,21 @@ class MyDatasetDict(DatasetDict):
         )
         self["metadata"] = tmp
 
+    def set_format(
+        self,
+        type: Optional[str] = None,
+        columns: Optional[List] = None,
+        output_all_columns: bool = False,
+        **format_kwargs,
+    ):
+        for key in self.data_keys():
+            self[key].set_format(
+                type=type,
+                columns=columns,
+                output_all_columns=output_all_columns,
+                **format_kwargs,
+            )
+
     def save_metadata(self, metadata_path: PathLike):
         with open(metadata_path, "w") as f:
             json.dump(self["metadata"], f)
@@ -46,8 +79,13 @@ class MyDatasetDict(DatasetDict):
     ) -> "MyDatasetDict":
         dataset = MyDatasetDict(
             DatasetDict.load_from_disk(
-                dataset_dict_path, fs=fs, keep_in_memory=keep_in_memory, storage_options=storage_options
+                dataset_dict_path,
+                fs=fs,
+                keep_in_memory=keep_in_memory,
+                storage_options=storage_options,
             )
         )
+        dataset.data_keys = dataset.keys()
+
         dataset["metadata"] = json.load(open(Path(dataset_dict_path) / "metadata.json"))
         return dataset

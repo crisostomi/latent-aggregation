@@ -3,5 +3,7 @@ ref: "Maysee/tiny-imagenet"
 train_split: train
 test_split: valid
 label_key: label
+image_key: image
+num_classes: 200
 num_train_samples_per_class: 500
 num_test_samples_per_class: 50

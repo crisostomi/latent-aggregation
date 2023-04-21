@@ -4,14 +4,13 @@ from pathlib import Path
 from typing import List, Mapping, Optional, Union
 
 import pytorch_lightning as pl
-import torch
 from nn_core.nn_types import Split
 from omegaconf import DictConfig
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 
 from la.data.prelim_exp_dataset import MyDataset
-from la.utils.utils import MyDatasetDict
+from la.utils.utils import MyDatasetDict, preprocess_img
 
 pylogger = logging.getLogger(__name__)
 
@@ -114,8 +113,15 @@ class MyDataModule(pl.LightningDataModule):
         self.val_percentage: float = val_percentage
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
-        self.tasks = self.data.keys()
+
+        self.tasks = {key for key in self.data.keys() if key != "metadata"}
         self.task_ind = None  # will be set in setup
+
+        for task in self.tasks:
+            self.data[task].set_format(type="torch", columns=["img", "fine_label"])
+            self.data[task] = self.data[task].rename_column("img", "x")
+            self.data[task] = self.data[task].map(lambda x: {"x": preprocess_img(x["x"])})
+            self.data[task] = self.data[task].rename_column("fine_label", "y")
 
         pylogger.info("Preprocessing done.")
 
@@ -137,23 +143,6 @@ class MyDataModule(pl.LightningDataModule):
     def setup(self, stage: Optional[str] = None) -> None:
         train_samples = self.data[f"task_{self.task_ind}_train"]
         test_samples = self.data[f"task_{self.task_ind}_test"]
-
-        train_samples.set_format(type="torch", columns=["img", "fine_label"])
-        test_samples.set_format(type="torch", columns=["img", "fine_label"])
-
-        # train_samples = train_samples.map(lambda row: {'img': row['img'] / 255.0})
-        # test_samples = test_samples.map(lambda row: {'img': row['img'] / 255.0})
-        def preprocess(x):
-            return torch.permute(x, (2, 0, 1)).float() / 255.0
-
-        train_samples = train_samples.rename_column("img", "x")
-        test_samples = test_samples.rename_column("img", "x")
-
-        train_samples = train_samples.map(lambda x: {"x": preprocess(x["x"])})
-        test_samples = test_samples.map(lambda x: {"x": preprocess(x["x"])})
-
-        train_samples = train_samples.rename_column("fine_label", "y")
-        test_samples = test_samples.rename_column("fine_label", "y")
 
         self.train_dataset = train_samples
         self.val_dataset = test_samples
