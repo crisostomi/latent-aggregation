@@ -10,7 +10,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 
 from la.data.prelim_exp_dataset import MyDataset
-from la.utils.utils import MyDatasetDict, preprocess_img
+from la.utils.utils import MyDatasetDict
 
 pylogger = logging.getLogger(__name__)
 
@@ -98,6 +98,7 @@ class MyDataModule(pl.LightningDataModule):
         gpus: Optional[Union[List[int], str, int]],
         val_percentage: float,
         data_path: Path,
+        only_use_sample_num: int = -1,
     ):
         super().__init__()
         self.datasets = datasets
@@ -114,14 +115,19 @@ class MyDataModule(pl.LightningDataModule):
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
 
-        self.tasks = {key for key in self.data.keys() if key != "metadata"}
-        self.task_ind = None  # will be set in setup
+        self.img_size = self.data["task_0_train"][0]["x"].size[1]
 
-        for task in self.tasks:
-            self.data[task].set_format(type="torch", columns=["img", "fine_label"])
-            self.data[task] = self.data[task].rename_column("img", "x")
-            self.data[task] = self.data[task].map(lambda x: {"x": preprocess_img(x["x"])})
-            self.data[task] = self.data[task].rename_column("fine_label", "y")
+        self.tasks = {key for key in self.data.keys() if key != "metadata"}
+
+        self.task_ind = None  # will be set in setup
+        self.transform_func = None  # will be set in setup
+
+        self.only_use_sample_num = only_use_sample_num
+        if only_use_sample_num >= 0:
+            for task in self.tasks:
+                self.data[task] = self.data[task].select(range(only_use_sample_num))
+
+        self.seen_tasks = set()
 
         pylogger.info("Preprocessing done.")
 
@@ -141,11 +147,36 @@ class MyDataModule(pl.LightningDataModule):
         pass
 
     def setup(self, stage: Optional[str] = None) -> None:
+        # to avoid reprocessing the data
+        if self.task_ind in self.seen_tasks:
+            return
+
         train_samples = self.data[f"task_{self.task_ind}_train"]
         test_samples = self.data[f"task_{self.task_ind}_test"]
 
+        map_params = {
+            "function": lambda x: {"x": self.transform_func(x["x"])},
+            "num_proc": 1,
+            "keep_in_memory": True,
+        }
+
+        train_samples = train_samples.map(
+            desc=f"Transforming task {self.task_ind} train samples",
+            **map_params,
+        )
+
+        test_samples = test_samples.map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
+
+        train_samples.set_format(type="torch", columns=["x", "y"])
+        test_samples.set_format(type="torch", columns=["x", "y"])
+
+        self.data[f"task_{self.task_ind}_train"] = train_samples
+        self.data[f"task_{self.task_ind}_test"] = test_samples
+
         self.train_dataset = train_samples
         self.val_dataset = test_samples
+
+        self.seen_tasks.add(self.task_ind)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(

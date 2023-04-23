@@ -1,0 +1,13 @@
+_target_: la.pl_modules.from_scratch_cnn.FromScratchCNN
+name: from_scratch_cnn
+
+model:
+    _target_: la.modules.vanilla_cnn.CNN
+    num_classes: ???
+    input_dim: ???
+    num_interm_channels: 16
+    num_out_channels: 32
+    embedding_dim: 256
+
+optimizer:
+  _target_: torch.optim.Adam

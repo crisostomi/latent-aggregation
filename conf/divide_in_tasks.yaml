@@ -1,8 +1,10 @@
 defaults:
-  - dataset: tiny_imagenet
+  - dataset: cifar100
 
-num_shared_classes: 100
-num_novel_classes_per_task: 20
+image_key: x
+label_key: y
+num_shared_classes: 80
+num_novel_classes_per_task: 5
 
 seed: 42
 use_cached: true

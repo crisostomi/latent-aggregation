@@ -1,7 +1,11 @@
+import nn_core  # noqa
 import logging
 import random
 from collections import namedtuple
 from pathlib import Path
+
+# Force the execution of __init__.py if this file is executed directly.
+import la  # noqa
 
 import hydra
 from datasets import (
@@ -16,7 +20,7 @@ from nn_core.common import PROJECT_ROOT
 from omegaconf import DictConfig, omegaconf
 from pytorch_lightning import seed_everything
 
-from la.utils.utils import MyDatasetDict
+from la.utils.utils import MyDatasetDict, convert_to_rgb
 
 pylogger = logging.getLogger(__name__)
 
@@ -24,26 +28,35 @@ pylogger = logging.getLogger(__name__)
 def run(cfg: DictConfig):
     seed_everything(cfg.seed)
 
+    pylogger.info(
+        f"Subdividing dataset {cfg.dataset.name} with {cfg.num_shared_classes} shared classes and {cfg.num_novel_classes_per_task} novel classes for task."
+    )
+
     dataset = load_data(cfg)
 
     # standardize label key and image key
     dataset = dataset.map(
-        lambda x: {"fine_label": x[cfg.dataset.label_key]},
+        lambda x: {cfg.label_key: x[cfg.dataset.label_key]},
         remove_columns=[cfg.dataset.label_key],
+        desc="Standardizing label key",
     )
     dataset = dataset.map(
-        lambda x: {"img": x[cfg.dataset.image_key]},
+        lambda x: {cfg.image_key: x[cfg.dataset.image_key]},
         batched=True,
         remove_columns=[cfg.dataset.image_key],
+        desc="Standardizing image key",
     )
+
+    # in case some images are not RGB, convert them to RGB
+    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
 
     # add ids
     dataset = dataset.map(lambda row, ind: {"id": ind}, batched=True, with_indices=True)
 
-    if isinstance(dataset["train"].features["fine_label"], Value):
+    if isinstance(dataset["train"].features[cfg.label_key], Value):
         all_classes = [str(class_id) for class_id in range(cfg.dataset.num_classes)]
     else:
-        all_classes = dataset["train"].features["fine_label"].names
+        all_classes = dataset["train"].features[cfg.label_key].names
 
     num_classes = len(all_classes)
 
@@ -68,8 +81,8 @@ def run(cfg: DictConfig):
 
     global_to_local_class_mappings["task_0"] = {class_str_to_id[c]: i for i, c in enumerate(all_classes)}
 
-    shared_train_samples = dataset["train"].filter(lambda x: x["fine_label"] in shared_classes)
-    shared_test_samples = dataset["test"].filter(lambda x: x["fine_label"] in shared_classes)
+    shared_train_samples = dataset["train"].filter(lambda x: x[cfg.label_key] in shared_classes)
+    shared_test_samples = dataset["test"].filter(lambda x: x[cfg.label_key] in shared_classes)
 
     for i in range(1, num_tasks + 1):
         (non_shared_classes, task_test_samples, task_train_samples, global_to_local_class_map,) = prepare_task(
@@ -153,7 +166,7 @@ def prepare_task(
     :param shared_train_samples:
     :return:
     """
-    label_key = "fine_label"
+    label_key = cfg.label_key
     task_novel_classes = set(random.sample(list(non_shared_classes), k=cfg.num_novel_classes_per_task))
 
     # remove the classes sampled for this task so that all tasks have disjoint novel classes
@@ -164,11 +177,11 @@ def prepare_task(
 
     task_train_samples = concatenate_datasets([shared_train_samples, novel_train_samples])
 
-    task_train_samples = task_train_samples.map(lambda row: {"fine_label": global_to_local_class_map[row[label_key]]})
+    task_train_samples = task_train_samples.map(lambda row: {cfg.label_key: global_to_local_class_map[row[label_key]]})
 
     novel_test_samples = dataset["test"].filter(lambda x: x[label_key] in task_novel_classes)
     task_test_samples = concatenate_datasets([shared_test_samples, novel_test_samples])
-    task_test_samples = task_test_samples.map(lambda row: {"fine_label": global_to_local_class_map[row[label_key]]})
+    task_test_samples = task_test_samples.map(lambda row: {cfg.label_key: global_to_local_class_map[row[label_key]]})
 
     assert len(task_train_samples) == cfg.dataset.num_train_samples_per_class * len(task_classes)
     assert len(task_test_samples) == cfg.dataset.num_test_samples_per_class * len(task_classes)

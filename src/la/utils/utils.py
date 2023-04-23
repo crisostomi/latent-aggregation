@@ -6,6 +6,31 @@ from typing import Optional, Union, Dict, List
 from datasets import DatasetDict
 
 
+class IdentityTransform:
+    def __call__(self, x):
+        return x
+
+
+class ToFloatRange:
+    def __call__(self, x):
+        """
+        Convert [0, 255] to [0, 1]
+        :param x:
+        :return:
+        """
+        return x.float() / 255
+
+
+def encode_field(batch, src_field: str, tgt_field: str, transformation):
+    """
+    Create a new field with name `tgt_field` by applying `transformation` to `src_field`.
+    """
+    src_data = batch[src_field]
+    transformed = transformation(src_data)
+
+    return {tgt_field: transformed}
+
+
 def preprocess_img(x):
     """
     (H, W, C) --> (C, H, W)
@@ -22,6 +47,17 @@ def preprocess_img(x):
         x = x.permute(2, 0, 1)
 
     return x.float() / 255.0
+
+
+class ConvertToRGB:
+    def __call__(self, image):
+        convert_to_rgb(image)
+
+
+def convert_to_rgb(image):
+    if image.mode != "RGB":
+        return image.convert("RGB")
+    return image
 
 
 class MyDatasetDict(DatasetDict):

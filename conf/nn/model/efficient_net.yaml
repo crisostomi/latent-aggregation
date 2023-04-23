@@ -1,0 +1,21 @@
+_target_: la.pl_modules.efficient_net.MyEfficientNet
+name: efficient_net
+
+model:
+  embedder:
+    _target_: la.modules.efficient_net.EfficientNetWrapper
+    model_name: efficientnet_b0
+
+  projector:
+    _target_: la.modules.mlp_projector.VanillaMLPProjector
+    num_input_features: 1280
+    hidden_dim: 256
+    projection_dim: 128
+
+  classifier:
+    _target_: torch.nn.Linear
+    in_features: ${nn.model.model.projector.projection_dim}
+    out_features: ???
+
+optimizer:
+  _target_: torch.optim.Adam

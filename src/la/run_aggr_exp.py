@@ -12,10 +12,14 @@ from nn_core.model_logging import NNLogger
 from nn_core.serialization import NNCheckpointIO
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
+from timm.data import resolve_data_config, create_transform, ToTensor
+from torchvision.transforms import Compose
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
+from la.pl_modules.efficient_net import MyEfficientNet
+from la.utils.utils import ToFloatRange
 
 pylogger = logging.getLogger(__name__)
 
@@ -50,6 +54,10 @@ def run(cfg: DictConfig) -> str:
     """
     seed_index_everything(cfg.train)
 
+    pylogger.info(
+        f"Running experiment on {cfg.nn.dataset_name} with {cfg.nn.num_shared_classes} shared classes and {cfg.nn.num_novel_classes} novel classes for task."
+    )
+
     fast_dev_run: bool = cfg.train.trainer.fast_dev_run
     if fast_dev_run:
         pylogger.info(f"Debug mode <{cfg.train.trainer.fast_dev_run=}>. Forcing debugger friendly configuration!")
@@ -74,18 +82,31 @@ def run(cfg: DictConfig) -> str:
         seed_index_everything(cfg.train)
 
         # Instantiate model
-        pylogger.info(f"Instantiating <{cfg.nn.module['_target_']}>")
+        pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
 
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.module,
+            cfg.nn.model,
             _recursive_=False,
             class_vocab=task_class_vocab,
-            model=cfg.nn.module.model,
+            model=cfg.nn.model.model,
+            input_dim=datamodule.img_size,
         )
 
+        transform_func = Compose(
+            [
+                ToTensor(),
+                ToFloatRange(),
+            ]
+        )
+
+        if isinstance(model, MyEfficientNet):
+            config = resolve_data_config({}, model=model.embedder)
+            transform_func = create_transform(**config)
+
         datamodule.task_ind = task_ind
+        datamodule.transform_func = transform_func
         datamodule.setup()
 
         # Instantiate the callbacks
@@ -114,14 +135,10 @@ def run(cfg: DictConfig) -> str:
             ckpt_path=template_core.trainer_ckpt_path,
         )
 
-        if fast_dev_run:
-            pylogger.info("Skipping testing in 'fast_dev_run' mode!")
-        else:
-            if "test" in cfg.nn.data.datasets and trainer.checkpoint_callback.best_model_path is not None:
-                pylogger.info("Starting testing!")
-                trainer.test(datamodule=datamodule)
+        if "test" in cfg.nn.data.datasets and trainer.checkpoint_callback.best_model_path is not None:
+            pylogger.info("Starting testing!")
+            trainer.test(datamodule=datamodule)
 
-        # Logger closing to release resources/avoid multi-run conflicts
         if logger is not None:
             logger.experiment.finish()
 
@@ -131,15 +148,23 @@ def run(cfg: DictConfig) -> str:
         training_samples = datamodule.data[f"task_{task_ind}_train"]
         test_samples = datamodule.data[f"task_{task_ind}_test"]
 
-        training_samples = training_samples.map(
-            lambda x: {
+        map_params = {
+            "function": lambda x: {
                 "embedding": model(x["x"])["embeds"].detach().numpy(),
             },
-            batched=True,
+            "batched": True,
+            "batch_size": 128,
+            "num_proc": 8,
+            "keep_in_memory": False,
+            "remove_columns": ["x"],
+        }
+        training_samples = training_samples.map(
+            desc="Embedding training samples",
+            **map_params,
         )
         test_samples = test_samples.map(
-            lambda x: {"embedding": model(x["x"])["embeds"].detach().numpy()},
-            batched=True,
+            desc="Embedding test samples",
+            **map_params,
         )
 
         datamodule.data[f"task_{task_ind}_train"] = training_samples
