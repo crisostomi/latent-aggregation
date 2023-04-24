@@ -224,3 +224,4 @@ fabric.properties
 /notebooks/checkpoints/
 src/la/outputs/
 outputs/
+multirun/
