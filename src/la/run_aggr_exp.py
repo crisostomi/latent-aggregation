@@ -1,33 +1,29 @@
 import logging
 import os
+from pathlib import Path
+from typing import List, Optional
+
 import hydra
 import omegaconf
 import pytorch_lightning as pl
 import torch
-
-from pathlib import Path
-from typing import List, Optional
-
-
+from datasets import disable_caching
 from nn_core.callbacks import NNTemplateCore
 from nn_core.common import PROJECT_ROOT
 from nn_core.common.utils import enforce_tags, seed_index_everything
 from nn_core.model_logging import NNLogger
+from nn_core.serialization import NNCheckpointIO, load_model
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 from timm.data import resolve_data_config, create_transform, ToTensor
 from torchvision.transforms import Compose
 from tqdm import tqdm
-from nn_core.serialization import NNCheckpointIO, load_model
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
 from la.utils.utils import ToFloatRange, get_checkpoint_callback
-
-
-from datasets import disable_caching
 
 disable_caching()
 pylogger = logging.getLogger(__name__)
