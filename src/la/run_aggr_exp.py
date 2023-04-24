@@ -1,26 +1,35 @@
 import logging
 import os
-from typing import List, Optional
-
 import hydra
 import omegaconf
 import pytorch_lightning as pl
+import torch
+
+from pathlib import Path
+from typing import List, Optional
+
+
 from nn_core.callbacks import NNTemplateCore
 from nn_core.common import PROJECT_ROOT
 from nn_core.common.utils import enforce_tags, seed_index_everything
 from nn_core.model_logging import NNLogger
-from nn_core.serialization import NNCheckpointIO
 from omegaconf import DictConfig, ListConfig
 from pytorch_lightning import Callback
 from timm.data import resolve_data_config, create_transform, ToTensor
 from torchvision.transforms import Compose
+from tqdm import tqdm
+from nn_core.serialization import NNCheckpointIO, load_model
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
-from la.utils.utils import ToFloatRange
+from la.utils.utils import ToFloatRange, get_checkpoint_callback
 
+
+from datasets import disable_caching
+
+disable_caching()
 pylogger = logging.getLogger(__name__)
 
 
@@ -142,28 +151,51 @@ def run(cfg: DictConfig) -> str:
         if logger is not None:
             logger.experiment.finish()
 
-        # embed all the samples with the trained model
-        model.eval()
+        best_model_path = get_checkpoint_callback(callbacks).best_model_path
+
+        best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
+
+        best_model.eval().cuda()
 
         training_samples = datamodule.data[f"task_{task_ind}_train"]
         test_samples = datamodule.data[f"task_{task_ind}_test"]
 
+        datamodule.shuffle_train = False
+        train_embeddings = []
+        for batch in tqdm(datamodule.train_dataloader(), desc="Embedding training samples"):
+            x = batch["x"].to("cuda")
+            train_embeddings.extend(best_model(x)["embeds"].detach())
+        train_embeddings = torch.stack(train_embeddings)
+
+        test_embeddings = []
+        for batch in tqdm(datamodule.val_dataloader(), desc="Embedding test samples"):
+            x = batch["x"].to("cuda")
+            test_embeddings.extend(best_model(x)["embeds"].detach())
+        test_embeddings = torch.stack(test_embeddings)
+
         map_params = {
-            "function": lambda x: {
-                "embedding": model(x["x"])["embeds"].detach().numpy(),
-            },
+            "with_indices": True,
             "batched": True,
             "batch_size": 128,
-            "num_proc": 8,
-            "keep_in_memory": False,
-            "remove_columns": ["x"],
+            "num_proc": 1,
+            "writer_batch_size": 10,
         }
+
         training_samples = training_samples.map(
-            desc="Embedding training samples",
+            function=lambda x, ind: {
+                "embedding": train_embeddings[ind],
+            },
+            desc="Storing embedded training samples",
             **map_params,
+            remove_columns=["x"],
         )
+
         test_samples = test_samples.map(
-            desc="Embedding test samples",
+            function=lambda x, ind: {
+                "embedding": test_embeddings[ind],
+            },
+            desc="Storing embedded test samples",
+            remove_columns=["x"],
             **map_params,
         )
 

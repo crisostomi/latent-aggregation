@@ -121,6 +121,7 @@ class MyDataModule(pl.LightningDataModule):
 
         self.task_ind = None  # will be set in setup
         self.transform_func = None  # will be set in setup
+        self.shuffle_train = True
 
         self.only_use_sample_num = only_use_sample_num
         if only_use_sample_num >= 0:
@@ -151,13 +152,15 @@ class MyDataModule(pl.LightningDataModule):
         if self.task_ind in self.seen_tasks:
             return
 
+        self.shuffle_train = True
+
         train_samples = self.data[f"task_{self.task_ind}_train"]
         test_samples = self.data[f"task_{self.task_ind}_test"]
 
         map_params = {
             "function": lambda x: {"x": self.transform_func(x["x"])},
+            "writer_batch_size": 10,
             "num_proc": 1,
-            "keep_in_memory": True,
         }
 
         train_samples = train_samples.map(
@@ -174,6 +177,7 @@ class MyDataModule(pl.LightningDataModule):
         self.data[f"task_{self.task_ind}_test"] = test_samples
 
         self.train_dataset = train_samples
+        # TODO: use train subset for validation
         self.val_dataset = test_samples
 
         self.seen_tasks.add(self.task_ind)
@@ -181,7 +185,7 @@ class MyDataModule(pl.LightningDataModule):
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
             self.train_dataset,
-            shuffle=True,
+            shuffle=self.shuffle_train,
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
             pin_memory=self.pin_memory,

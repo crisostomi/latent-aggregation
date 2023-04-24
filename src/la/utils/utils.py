@@ -3,7 +3,8 @@ from os import PathLike
 from pathlib import Path
 from typing import Optional, Union, Dict, List
 
-from datasets import DatasetDict
+from datasets import DatasetDict, Dataset
+from pytorch_lightning.callbacks import ModelCheckpoint
 
 
 class IdentityTransform:
@@ -125,3 +126,18 @@ class MyDatasetDict(DatasetDict):
 
         dataset["metadata"] = json.load(open(Path(dataset_dict_path) / "metadata.json"))
         return dataset
+
+
+def get_checkpoint_callback(callbacks):
+    for callback in callbacks:
+        if isinstance(callback, ModelCheckpoint):
+            return callback
+
+
+def add_tensor_column(dataset, column, tensor):
+
+    dataset_dict = dataset.to_dict()
+    dataset_dict[column] = tensor.tolist()
+    dataset = Dataset.from_dict(dataset_dict)
+
+    return dataset

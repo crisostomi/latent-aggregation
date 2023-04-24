@@ -180,7 +180,7 @@ def plot_space_grid(
     return fig
 
 
-def reduce(space1: torch.Tensor, space2: torch.Tensor, reduction: Reduction, seed: int = 42):
+def reduce(space1: torch.Tensor, space2: torch.Tensor, reduction: Reduction, seed: int = 42, perplexity=30):
     if reduction == Reduction.INDEPENDENT_PCA:
         space1 = PCA(2, random_state=seed).fit_transform(space1)
         space2 = PCA(2, random_state=seed).fit_transform(space2)
@@ -189,8 +189,12 @@ def reduce(space1: torch.Tensor, space2: torch.Tensor, reduction: Reduction, see
         space1 = pca.fit_transform(space1)
         space2 = pca.transform(space2)
     elif reduction == Reduction.TSNE:
-        space1 = TSNE(2, random_state=seed, learning_rate="auto", init="pca").fit_transform(space1)
-        space2 = TSNE(2, random_state=seed, learning_rate="auto", init="pca").fit_transform(space2)
+        space1 = TSNE(2, random_state=seed, learning_rate="auto", init="pca", perplexity=perplexity).fit_transform(
+            space1
+        )
+        space2 = TSNE(2, random_state=seed, learning_rate="auto", init="pca", perplexity=perplexity).fit_transform(
+            space2
+        )
     elif reduction == Reduction.FIRST_DIMS:
         space1 = space1[:, [0, 1]]
         space2 = space2[:, [0, 1]]
