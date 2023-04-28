@@ -34,19 +34,6 @@ def run(cfg: DictConfig):
 
     dataset = load_data(cfg)
 
-    # # transforms
-    # {
-    #     "efficient_net": Compose(
-    #         Resize(size=256, interpolation=bicubic, max_size=None, antialias=None),
-    #         CenterCrop(size=(224, 224)),
-    #         ToTensor(),
-    #         Normalize(
-    #             mean=tensor([0.4850, 0.4560, 0.4060]),
-    #             std=tensor([0.2290, 0.2240, 0.2250]),
-    #         ),
-    #     )
-    # }
-
     # standardize label key and image key
     dataset = dataset.map(
         lambda x: {cfg.label_key: x[cfg.dataset.label_key]},

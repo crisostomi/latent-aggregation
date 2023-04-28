@@ -3,8 +3,8 @@ defaults:
 
 image_key: x
 label_key: y
-num_shared_classes: 80
-num_novel_classes_per_task: 5
+num_shared_classes: 80 # S
+num_novel_classes_per_task: 5 # N
 
 seed: 42
 use_cached: true

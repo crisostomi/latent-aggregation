@@ -148,6 +148,7 @@ def run(cfg: DictConfig) -> str:
             logger.experiment.finish()
 
         best_model_path = get_checkpoint_callback(callbacks).best_model_path
+        # TODO: check that the best_model_path is different for different tasks
 
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
 
