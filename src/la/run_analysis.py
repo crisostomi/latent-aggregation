@@ -1,49 +1,28 @@
 import json
 import logging
-import os
 import random
-from enum import auto
 from functools import partial
-from pathlib import Path
-from typing import List, Optional
 
-import hdf5storage
 import hydra
 import matplotlib.pyplot as plt
-import numpy as np
 import omegaconf
 import pytorch_lightning
-import pytorch_lightning as pl
 import torch
 import torchmetrics
-from backports.strenum import StrEnum
 from datasets import Dataset, concatenate_datasets
-from hydra import initialize
-from hydra.core.global_hydra import GlobalHydra
-from omegaconf import DictConfig, ListConfig, OmegaConf
-from pytorch_lightning import Callback, Trainer, seed_everything
+from nn_core.common import PROJECT_ROOT
+from nn_core.common.utils import seed_index_everything
+from omegaconf import DictConfig
+from pytorch_lightning import Trainer, seed_everything
 
 # classification analysis stuff
 from torch import nn
 from torch.nn import functional as F
-from torch.utils.data import DataLoader
-from torchvision.datasets import MNIST
-from torchvision.transforms import Compose, transforms
-from tqdm import tqdm
-
-from nn_core.callbacks import NNTemplateCore
-from nn_core.common import PROJECT_ROOT
-from nn_core.common.utils import enforce_tags, seed_index_everything
-from nn_core.model_logging import NNLogger
-from nn_core.serialization import NNCheckpointIO, load_model
 
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
-from la.data.prelim_exp_datamodule import MetaData
-from la.pl_modules.efficient_net import MyEfficientNet
-from la.pl_modules.pl_module import MyLightningModule
 from la.utils.cka import CKA
-from la.utils.utils import MyDatasetDict, ToFloatRange, add_tensor_column, get_checkpoint_callback
+from la.utils.utils import MyDatasetDict, add_tensor_column
 
 plt.style.use("dark_background")
 
@@ -58,7 +37,8 @@ def map_labels_to_global(data, num_tasks):
 
         for mode in ["train", "test"]:
             data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
-                lambda row: {"y": local_to_global_map[row["y"].item()]}, desc=f"Mapping labels back to global."
+                lambda row: {"y": local_to_global_map[row["y"].item()]},
+                desc="Mapping labels back to global.",
             )
 
 
@@ -174,10 +154,14 @@ def single_configuration_experiment(global_cfg, single_cfg):
     cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
 
     cka_nonshared = cka(
-        merged_dataset_nonshared["relative_embeddings"], original_dataset_nonshared["relative_embeddings"]
+        merged_dataset_nonshared["relative_embeddings"],
+        original_dataset_nonshared["relative_embeddings"],
     )
 
-    cka_shared = cka(merged_dataset_shared["relative_embeddings"], original_dataset_shared["relative_embeddings"])
+    cka_shared = cka(
+        merged_dataset_shared["relative_embeddings"],
+        original_dataset_shared["relative_embeddings"],
+    )
 
     cka_results = {
         "cka_rel_abs": cka_rel_abs.detach().item(),
@@ -225,7 +209,8 @@ def get_shared_samples_ids(data, num_tasks, shared_classes):
     for task_ind in range(num_tasks + 1):
         for mode in ["train", "test"]:
             data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
-                lambda row: {"shared": row["y"].item() in shared_classes}, desc="Adding shared column to samples"
+                lambda row: {"shared": row["y"].item() in shared_classes},
+                desc="Adding shared column to samples",
             )
 
     shared_ids = []
@@ -258,7 +243,8 @@ def add_anchor_column(data, num_tasks, anchor_ids):
     # only training samples can be anchors
     for task_ind in range(num_tasks + 1):
         data[f"task_{task_ind}_train"] = data[f"task_{task_ind}_train"].map(
-            lambda row: {"anchor": row["id"].item() in anchor_ids}, desc="Adding anchor column to train samples"
+            lambda row: {"anchor": row["id"].item() in anchor_ids},
+            desc="Adding anchor column to train samples",
         )
 
 
@@ -331,7 +317,13 @@ def merge_subspaces(shared_samples, novel_samples):
 
 
 class Model(pytorch_lightning.LightningModule):
-    def __init__(self, classifier: nn.Module, shared_classes: set, non_shared_classes: set, use_relatives: bool):
+    def __init__(
+        self,
+        classifier: nn.Module,
+        shared_classes: set,
+        non_shared_classes: set,
+        use_relatives: bool,
+    ):
         super().__init__()
         self.classifier = classifier
 
@@ -384,7 +376,13 @@ class Model(pytorch_lightning.LightningModule):
         shared_classes_y_hat = y_hat[shared_classes_mask]
 
         shared_classes_acc = torch.sum(shared_classes_y == shared_classes_y_hat) / len(shared_classes_y)
-        self.log("test_acc_shared_classes", shared_classes_acc, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(
+            "test_acc_shared_classes",
+            shared_classes_acc,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+        )
 
         # compute accuracy for non-shared classes
         non_shared_classes_mask = torch.isin(y, self.non_shared_classes)
@@ -392,7 +390,13 @@ class Model(pytorch_lightning.LightningModule):
         non_shared_classes_y_hat = y_hat[non_shared_classes_mask]
 
         non_shared_classes_acc = torch.sum(non_shared_classes_y == non_shared_classes_y_hat) / len(non_shared_classes_y)
-        self.log("test_acc_non_shared_classes", non_shared_classes_acc, on_step=True, on_epoch=True, prog_bar=True)
+        self.log(
+            "test_acc_non_shared_classes",
+            non_shared_classes_acc,
+            on_step=True,
+            on_epoch=True,
+            prog_bar=True,
+        )
 
         return loss
 
@@ -415,7 +419,13 @@ class Classifier(nn.Module):
 
 
 def run_classification_experiment(
-    shared_classes, non_shared_classes, num_total_classes, global_cfg, num_anchors, dataset, use_relatives
+    shared_classes,
+    non_shared_classes,
+    num_total_classes,
+    global_cfg,
+    num_anchors,
+    dataset,
+    use_relatives,
 ):
     seed_everything(42)
 
@@ -428,7 +438,9 @@ def run_classification_experiment(
     trainer_func = partial(Trainer, gpus=1, max_epochs=100, logger=False, enable_progress_bar=True)
 
     classifier = Classifier(
-        input_dim=num_anchors, classifier_embed_dim=global_cfg.classifier_embed_dim, num_classes=num_total_classes
+        input_dim=num_anchors,
+        classifier_embed_dim=global_cfg.classifier_embed_dim,
+        num_classes=num_total_classes,
     )
     model = Model(
         classifier=classifier,
