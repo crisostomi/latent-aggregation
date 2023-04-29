@@ -23,29 +23,10 @@ from tqdm import tqdm
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
-from la.utils.utils import ToFloatRange, get_checkpoint_callback
+from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
 
 disable_caching()
 pylogger = logging.getLogger(__name__)
-
-
-def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
-    """Instantiate the callbacks given their configuration.
-
-    Args:
-        cfg: a list of callbacks instantiable configuration
-        *args: a list of extra callbacks already instantiated
-
-    Returns:
-        the complete list of callbacks to use
-    """
-    callbacks: List[Callback] = list(args)
-
-    for callback in cfg:
-        pylogger.info(f"Adding callback <{callback['_target_'].split('.')[-1]}>")
-        callbacks.append(hydra.utils.instantiate(callback, _recursive_=False))
-
-    return callbacks
 
 
 def run(cfg: DictConfig) -> str:

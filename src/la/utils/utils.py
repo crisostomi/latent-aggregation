@@ -135,9 +135,27 @@ def get_checkpoint_callback(callbacks):
 
 
 def add_tensor_column(dataset, column, tensor):
-
     dataset_dict = dataset.to_dict()
     dataset_dict[column] = tensor.tolist()
     dataset = Dataset.from_dict(dataset_dict)
 
     return dataset
+
+
+def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
+    """Instantiate the callbacks given their configuration.
+
+    Args:
+        cfg: a list of callbacks instantiable configuration
+        *args: a list of extra callbacks already instantiated
+
+    Returns:
+        the complete list of callbacks to use
+    """
+    callbacks: List[Callback] = list(args)
+
+    for callback in cfg:
+        pylogger.info(f"Adding callback <{callback['_target_'].split('.')[-1]}>")
+        callbacks.append(hydra.utils.instantiate(callback, _recursive_=False))
+
+    return callbacks
