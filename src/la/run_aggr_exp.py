@@ -13,7 +13,7 @@ from nn_core.common import PROJECT_ROOT
 from nn_core.common.utils import enforce_tags, seed_index_everything
 from nn_core.model_logging import NNLogger
 from nn_core.serialization import NNCheckpointIO, load_model
-from omegaconf import DictConfig, ListConfig
+from omegaconf import DictConfig
 from pytorch_lightning import Callback
 from timm.data import resolve_data_config, create_transform, ToTensor
 from torchvision.transforms import Compose
@@ -75,7 +75,7 @@ def run(cfg: DictConfig) -> str:
         model: pl.LightningModule = hydra.utils.instantiate(
             cfg.nn.model,
             _recursive_=False,
-            class_vocab=task_class_vocab,
+            num_classes=len(task_class_vocab),
             model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
         )

@@ -13,10 +13,10 @@ pylogger = logging.getLogger(__name__)
 class MyLightningModule(pl.LightningModule):
     logger: NNLogger
 
-    def __init__(self, class_vocab, *args, **kwargs) -> None:
+    def __init__(self, num_classes, *args, **kwargs) -> None:
         super().__init__()
 
-        self.class_vocab = class_vocab
+        self.num_classes = num_classes
 
         metric = torchmetrics.Accuracy()
         self.train_accuracy = metric.clone()

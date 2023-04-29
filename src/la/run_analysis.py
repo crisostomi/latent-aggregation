@@ -22,6 +22,7 @@ from torch.nn import functional as F
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
 from la.utils.cka import CKA
+from la.utils.class_analysis import Classifier
 from la.utils.utils import MyDatasetDict, add_tensor_column
 
 plt.style.use("dark_background")
@@ -402,20 +403,6 @@ class Model(pytorch_lightning.LightningModule):
 
     def configure_optimizers(self):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
-
-
-class Classifier(nn.Module):
-    def __init__(self, input_dim, classifier_embed_dim, num_classes):
-        super().__init__()
-        self.classifier = nn.Sequential(
-            nn.LayerNorm(input_dim),
-            nn.Linear(input_dim, classifier_embed_dim),
-            nn.ReLU(),
-            nn.Linear(classifier_embed_dim, num_classes),
-        )
-
-    def forward(self, x):
-        return self.classifier(x)
 
 
 def run_classification_experiment(

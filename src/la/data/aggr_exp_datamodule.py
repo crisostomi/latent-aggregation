@@ -159,7 +159,7 @@ class MyDataModule(pl.LightningDataModule):
 
         map_params = {
             "function": lambda x: {"x": self.transform_func(x["x"])},
-            "writer_batch_size": 10,
+            "writer_batch_size": 100,
             "num_proc": 1,
         }
 
@@ -170,11 +170,15 @@ class MyDataModule(pl.LightningDataModule):
 
         test_samples = test_samples.map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
 
+        anchors = self.data["anchors"].map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
+
         train_samples.set_format(type="torch", columns=["x", "y"])
         test_samples.set_format(type="torch", columns=["x", "y"])
+        anchors.set_format(type="torch", columns=["x", "y"])
 
         self.data[f"task_{self.task_ind}_train"] = train_samples
         self.data[f"task_{self.task_ind}_test"] = test_samples
+        self.data[f"task_{self.task_ind}_anchors"] = anchors
 
         self.train_dataset = train_samples
         # TODO: use train subset for validation

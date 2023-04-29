@@ -16,12 +16,10 @@ pylogger = logging.getLogger(__name__)
 class MyEfficientNet(MyLightningModule):
     logger: NNLogger
 
-    def __init__(self, class_vocab, model: DictConfig, *args, **kwargs) -> None:
-        super().__init__(class_vocab=class_vocab, *args, **kwargs)
+    def __init__(self, num_classes, model: DictConfig, *args, **kwargs) -> None:
+        super().__init__(num_classes=num_classes, *args, **kwargs)
 
         self.save_hyperparameters(logger=False, ignore=("metadata",))
-
-        num_classes = len(class_vocab)
 
         self.embedder = instantiate(model.embedder)
         self.projector = instantiate(

@@ -41,9 +41,7 @@ def run(cfg: DictConfig) -> str:
     """
     seed_index_everything(cfg.train)
 
-    pylogger.info(
-        f"Running experiment on {cfg.nn.dataset_name} with {cfg.nn.num_shared_classes} shared classes and {cfg.nn.num_novel_classes} novel classes for task."
-    )
+    pylogger.info(f"Running experiment on {cfg.nn.dataset_name}")
 
     fast_dev_run: bool = cfg.train.trainer.fast_dev_run
     if fast_dev_run:
@@ -65,18 +63,18 @@ def run(cfg: DictConfig) -> str:
         pylogger.warning(f"No 'metadata' attribute found in datamodule <{datamodule.__class__.__name__}>")
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
+    num_classes = datamodule.data["metadata"]["num_classes"]
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
         # Instantiate model
         pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
 
-        task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
-
         model: pl.LightningModule = hydra.utils.instantiate(
             cfg.nn.model,
             _recursive_=False,
-            class_vocab=task_class_vocab,
+            # TODO: set total number of classes
+            num_classes=num_classes,
             model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
         )
@@ -178,7 +176,7 @@ def run(cfg: DictConfig) -> str:
             **map_params,
         )
 
-        anchors = datamodule.data["anchors"]
+        anchors = datamodule.data[f"task_{task_ind}_anchors"]
         anchors_dataloader = DataLoader(anchors, batch_size=128, num_workers=0)
 
         anchor_embeddings = []
@@ -187,9 +185,18 @@ def run(cfg: DictConfig) -> str:
             anchor_embeddings.extend(best_model(x)["embeds"].detach())
         anchor_embeddings = torch.stack(anchor_embeddings)
 
+        anchors = anchors.map(
+            function=lambda x, ind: {
+                "embedding": anchor_embeddings[ind],
+            },
+            desc="Storing embedded anchors",
+            remove_columns=["x"],
+            **map_params,
+        )
+
         datamodule.data[f"task_{task_ind}_train"] = training_samples
         datamodule.data[f"task_{task_ind}_test"] = test_samples
-        datamodule.data[f"task_{task_ind}_anchors"] = anchor_embeddings
+        datamodule.data[f"task_{task_ind}_anchors"] = anchors
 
     if not os.path.exists(cfg.nn.output_path):
         os.makedirs(cfg.nn.output_path)
