@@ -1,6 +1,7 @@
+from typing import List, Dict
+
 import nn_core  # noqa
 import logging
-import random
 from collections import namedtuple
 from pathlib import Path
 
@@ -28,9 +29,7 @@ pylogger = logging.getLogger(__name__)
 def run(cfg: DictConfig):
     seed_everything(cfg.seed)
 
-    pylogger.info(
-        f"Subdividing dataset {cfg.dataset.name} with {cfg.num_shared_classes} shared classes and {cfg.num_novel_classes_per_task} novel classes for task."
-    )
+    pylogger.info(f"Subdividing dataset {cfg.dataset.name}")
 
     dataset = load_data(cfg)
 
@@ -51,7 +50,12 @@ def run(cfg: DictConfig):
     dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
 
     # add ids
-    dataset = dataset.map(lambda row, ind: {"id": ind}, batched=True, with_indices=True)
+    N = len(dataset["train"])
+    M = len(dataset["test"])
+    indices = {"train": list(range(N)), "test": list(range(N, N + M))}
+
+    for mode in ["train", "test"]:
+        dataset[mode] = dataset[mode].map(lambda row, ind: {"id": indices[mode][ind]}, with_indices=True)
 
     if isinstance(dataset["train"].features[cfg.label_key], Value):
         all_classes = [str(class_id) for class_id in range(cfg.dataset.num_classes)]
@@ -61,61 +65,129 @@ def run(cfg: DictConfig):
     num_classes = len(all_classes)
 
     all_classes_ids = [id for id, _ in enumerate(all_classes)]
-    class_str_to_id = {c: i for i, c in enumerate(all_classes)}
 
-    # Sample shared classes
-    shared_classes = set(random.sample(all_classes_ids, k=cfg.num_shared_classes))
+    num_tasks = cfg.num_tasks
 
-    non_shared_classes = set([c for c in all_classes_ids if c not in shared_classes])
+    classes_partitions = cfg.classes_partitions
 
-    assert len(non_shared_classes) == num_classes - cfg.num_shared_classes
+    classes_sets = [set(range(*partition)) for partition in classes_partitions]
 
-    # Subdivide data into tasks defined by different classes subsets
-    num_tasks = (num_classes - cfg.num_shared_classes) // cfg.num_novel_classes_per_task
+    pylogger.info(classes_sets)
+    subset_percentages = cfg.subset_percentages
+
     new_dataset = MyDatasetDict()
-    global_to_local_class_mappings = {}
 
     # task 0 is a dummy task that consists of the samples for all the classes
-    new_dataset["task_0_train"] = dataset["train"]
+    val_train_split = dataset["train"].train_test_split(test_size=cfg.val_percentage)
+
+    new_dataset["task_0_train"] = val_train_split["train"]
+    new_dataset["task_0_val"] = val_train_split["test"]
     new_dataset["task_0_test"] = dataset["test"]
 
-    global_to_local_class_mappings["task_0"] = {class_str_to_id[c]: i for i, c in enumerate(all_classes)}
+    anchors = dataset["train"].shuffle(seed=cfg.seed).select(range(cfg.num_anchors))
+    anchor_ids = set(anchors["id"])
 
-    shared_train_samples = dataset["train"].filter(lambda x: x[cfg.label_key] in shared_classes)
-    shared_test_samples = dataset["test"].filter(lambda x: x[cfg.label_key] in shared_classes)
+    new_dataset["anchors"] = anchors
 
-    for i in range(1, num_tasks + 1):
-        (non_shared_classes, task_test_samples, task_train_samples, global_to_local_class_map,) = prepare_task(
-            cfg,
-            dataset,
-            non_shared_classes,
-            shared_classes,
-            shared_test_samples,
-            shared_train_samples,
-        )
+    num_partitions = len(classes_partitions)
 
-        global_to_local_class_mappings[f"task_{i}"] = global_to_local_class_map
-        new_dataset[f"task_{i}_train"] = task_train_samples
-        new_dataset[f"task_{i}_test"] = task_test_samples
+    # for each class set C_1, .., C_k contains the train and test samples for that class set
+    partitions_by_class_set: Dict[str, List] = {"train": [], "test": []}
+
+    for part_ind in range(num_partitions):
+        for mode in ["train", "test"]:
+            # e.g. C = {0, ... , 49}
+            partition_classes = classes_sets[part_ind]
+
+            # partition is a dataset containing only samples belonging to the corresponding class partition
+            partition = dataset[mode].filter(
+                lambda x: x[cfg.label_key] in partition_classes and x["id"] not in anchor_ids,
+                desc=f"Creating partition {part_ind}",
+            )
+            partitions_by_class_set[mode].append(partition)
+
+    all_tasks = {"train": [], "test": []}
+    remaining_percentages = {"train": [1.0, 1.0], "test": [1.0, 1.0]}
+
+    # for each task we will have a different model
+
+    for task in range(1, num_tasks + 1):
+        # e.g. [0.8, 0.2]
+        task_subset_percentages = subset_percentages[task - 1]
+
+        # each task will have a train and test set
+        for mode in ["train", "test"]:
+            task_samples = []
+
+            for part_ind in range(num_partitions):
+                # percentage of the task samples that will be sampled from this partition
+                # e.g. 0.8 means that 80% of the samples of the task will have class in this class partition
+                part_percentage = task_subset_percentages[part_ind]
+
+                # percentage of the samples having class in the partition that remain for the following tasks
+                remaining_percentages[mode][part_ind] -= part_percentage
+
+                if is_zero(remaining_percentages[mode][part_ind]):
+                    task_partition_samples = partitions_by_class_set[mode][part_ind]
+                    partitions_by_class_set[mode][part_ind] = None
+                else:
+                    task_partition_samples, remaining_samples = split(
+                        partition_samples=partitions_by_class_set[mode][part_ind],
+                        split_percentage=remaining_percentages[mode][part_ind],
+                    )
+
+                    partitions_by_class_set[mode][part_ind] = remaining_samples
+
+                task_samples.append(task_partition_samples)
+
+            task_samples = concatenate_datasets(task_samples)
+
+            all_tasks[mode].append(task_samples)
+
+            if mode == "train":
+                task_samples_split = task_samples.train_test_split(test_size=cfg.perc_test_per_task)
+
+                new_dataset[f"task_{task}_train"] = task_samples_split["train"]
+                new_dataset[f"task_{task}_val"] = task_samples_split["test"]
+            else:
+                new_dataset[f"task_{task}_test"] = task_samples
+
+    # safety check
+
+    for mode in ["train", "test"]:
+        for task in range(num_tasks):
+            for part in range(num_partitions):
+                task_samples = all_tasks[mode][task].filter(
+                    lambda x: x[cfg.label_key] in classes_sets[part],
+                )
+                pylogger.info(f"Task {task} has {len(task_samples)} {mode} samples for partition {part}")
 
     metadata = {
         "num_train_samples_per_class": cfg.dataset.num_train_samples_per_class,
         "num_test_samples_per_class": cfg.dataset.num_test_samples_per_class,
-        "num_shared_classes": cfg.num_shared_classes,
-        "num_novel_classes_per_task": cfg.num_novel_classes_per_task,
         "num_tasks": num_tasks,
-        "shared_classes": list(shared_classes),
-        "non_shared_classes": list(non_shared_classes),
         "all_classes": all_classes,
         "all_classes_ids": all_classes_ids,
         "num_classes": num_classes,
-        "global_to_local_class_mappings": global_to_local_class_mappings,
     }
 
     new_dataset["metadata"] = metadata
-    pylogger.info(metadata["global_to_local_class_mappings"])
 
-    save_to_disk(cfg, new_dataset, cfg.num_novel_classes_per_task, cfg.num_shared_classes)
+    save_to_disk(cfg, new_dataset)
+
+
+def split(partition_samples, split_percentage):
+    split_samples = partition_samples.train_test_split(test_size=split_percentage)
+
+    partition_samples = split_samples["train"]
+    remaining_samples = split_samples["test"]
+
+    return partition_samples, remaining_samples
+
+
+def is_zero(remaining_percentage):
+    # to avoid numerical issues
+    return abs(remaining_percentage - 0.0) < 1e-6
 
 
 def load_data(cfg):
@@ -148,59 +220,11 @@ def load_data(cfg):
     return dataset
 
 
-def prepare_task(
-    cfg,
-    dataset,
-    non_shared_classes,
-    shared_classes,
-    shared_test_samples,
-    shared_train_samples,
-):
-    """
-
-    :param dataset:
-    :param non_shared_classes:
-    :param num_novel_classes_per_task:
-    :param shared_classes:
-    :param shared_test_samples:
-    :param shared_train_samples:
-    :return:
-    """
-    label_key = cfg.label_key
-    task_novel_classes = set(random.sample(list(non_shared_classes), k=cfg.num_novel_classes_per_task))
-
-    # remove the classes sampled for this task so that all tasks have disjoint novel classes
-    non_shared_classes = non_shared_classes.difference(task_novel_classes)
-    task_classes = shared_classes.union(task_novel_classes)
-    global_to_local_class_map = {c: i for i, c in enumerate(list(task_classes))}
-    novel_train_samples = dataset["train"].filter(lambda x: x[label_key] in task_novel_classes)
-
-    task_train_samples = concatenate_datasets([shared_train_samples, novel_train_samples])
-
-    task_train_samples = task_train_samples.map(lambda row: {cfg.label_key: global_to_local_class_map[row[label_key]]})
-
-    novel_test_samples = dataset["test"].filter(lambda x: x[label_key] in task_novel_classes)
-    task_test_samples = concatenate_datasets([shared_test_samples, novel_test_samples])
-    task_test_samples = task_test_samples.map(lambda row: {cfg.label_key: global_to_local_class_map[row[label_key]]})
-
-    assert len(task_train_samples) == cfg.dataset.num_train_samples_per_class * len(task_classes)
-    assert len(task_test_samples) == cfg.dataset.num_test_samples_per_class * len(task_classes)
-
-    return (
-        non_shared_classes,
-        task_test_samples,
-        task_train_samples,
-        global_to_local_class_map,
-    )
-
-
-def save_to_disk(cfg, new_dataset, num_novel_classes_per_task, num_shared_classes):
+def save_to_disk(cfg, new_dataset):
     """
 
     :param cfg:
     :param new_dataset:
-    :param num_novel_classes_per_task:
-    :param num_shared_classes:
     :return:
     """
 
@@ -209,7 +233,7 @@ def save_to_disk(cfg, new_dataset, num_novel_classes_per_task, num_shared_classe
     if not dataset_folder.exists():
         dataset_folder.mkdir()
 
-    output_folder = dataset_folder / f"S{num_shared_classes}_N{num_novel_classes_per_task}"
+    output_folder = dataset_folder / "partitioned"
 
     if not (output_folder).exists():
         (output_folder).mkdir()
@@ -217,7 +241,7 @@ def save_to_disk(cfg, new_dataset, num_novel_classes_per_task, num_shared_classe
     new_dataset.save_to_disk(output_folder)
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="divide_in_tasks")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="divide_in_nondisjoint_tasks")
 def main(cfg: omegaconf.DictConfig):
     run(cfg)
 

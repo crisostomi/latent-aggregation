@@ -128,54 +128,13 @@ def run(cfg: DictConfig) -> str:
         if logger is not None:
             logger.experiment.finish()
 
-        best_model_path = get_checkpoint_callback(callbacks).best_model_path
         # TODO: check that the best_model_path is different for different tasks
+        best_model_path = get_checkpoint_callback(callbacks).best_model_path
 
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
-
         best_model.eval().cuda()
 
-        training_samples = datamodule.data[f"task_{task_ind}_train"]
-        test_samples = datamodule.data[f"task_{task_ind}_test"]
-
-        datamodule.shuffle_train = False
-        train_embeddings = []
-        for batch in tqdm(datamodule.train_dataloader(), desc="Embedding training samples"):
-            x = batch["x"].to("cuda")
-            train_embeddings.extend(best_model(x)["embeds"].detach())
-        train_embeddings = torch.stack(train_embeddings)
-
-        test_embeddings = []
-        for batch in tqdm(datamodule.val_dataloader(), desc="Embedding test samples"):
-            x = batch["x"].to("cuda")
-            test_embeddings.extend(best_model(x)["embeds"].detach())
-        test_embeddings = torch.stack(test_embeddings)
-
-        map_params = {
-            "with_indices": True,
-            "batched": True,
-            "batch_size": 128,
-            "num_proc": 1,
-            "writer_batch_size": 10,
-        }
-
-        training_samples = training_samples.map(
-            function=lambda x, ind: {
-                "embedding": train_embeddings[ind],
-            },
-            desc="Storing embedded training samples",
-            **map_params,
-            remove_columns=["x"],
-        )
-
-        test_samples = test_samples.map(
-            function=lambda x, ind: {
-                "embedding": test_embeddings[ind],
-            },
-            desc="Storing embedded test samples",
-            remove_columns=["x"],
-            **map_params,
-        )
+        training_samples, test_samples = embed_task_samples(datamodule, best_model, task_ind)
 
         datamodule.data[f"task_{task_ind}_train"] = training_samples
         datamodule.data[f"task_{task_ind}_test"] = test_samples
@@ -186,6 +145,52 @@ def run(cfg: DictConfig) -> str:
     datamodule.data.save_to_disk(cfg.nn.output_path)
 
     return logger.run_dir
+
+
+def embed_task_samples(datamodule, model, task_ind):
+    training_samples = datamodule.data[f"task_{task_ind}_train"]
+    test_samples = datamodule.data[f"task_{task_ind}_test"]
+
+    datamodule.shuffle_train = False
+    train_embeddings = []
+    for batch in tqdm(datamodule.train_dataloader(), desc="Embedding training samples"):
+        x = batch["x"].to("cuda")
+        train_embeddings.extend(model(x)["embeds"].detach())
+    train_embeddings = torch.stack(train_embeddings)
+
+    test_embeddings = []
+    for batch in tqdm(datamodule.val_dataloader(), desc="Embedding test samples"):
+        x = batch["x"].to("cuda")
+        test_embeddings.extend(model(x)["embeds"].detach())
+    test_embeddings = torch.stack(test_embeddings)
+
+    map_params = {
+        "with_indices": True,
+        "batched": True,
+        "batch_size": 128,
+        "num_proc": 1,
+        "writer_batch_size": 10,
+    }
+
+    training_samples = training_samples.map(
+        function=lambda x, ind: {
+            "embedding": train_embeddings[ind],
+        },
+        desc="Storing embedded training samples",
+        **map_params,
+        remove_columns=["x"],
+    )
+
+    test_samples = test_samples.map(
+        function=lambda x, ind: {
+            "embedding": test_embeddings[ind],
+        },
+        desc="Storing embedded test samples",
+        remove_columns=["x"],
+        **map_params,
+    )
+
+    return training_samples, test_samples
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="aggr_exp")
