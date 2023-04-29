@@ -1,0 +1,38 @@
+defaults:
+  - model: efficient_net  # vanilla_cnn, efficient_net
+
+dataset_name: cifar100 # cifar100 or tiny_imagenet
+num_shared_classes: 80
+num_novel_classes: 5
+data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/
+output_path: ${nn.data_path}_${nn.model.name}
+
+data:
+  _target_: la.data.aggr_exp_datamodule.MyDataModule
+  data_path: ${nn.data_path}
+  only_use_sample_num: -1 # -1 means use all samples
+
+  datasets:
+    train:
+      _target_: la.data.aggr_exp_dataset.MyDataset
+      samples: ???
+      split: ???
+
+    val:
+      _target_: la.data.aggr_exp_dataset.MyDataset
+      samples: ???
+      split: ???
+
+  gpus: ${train.trainer.gpus}
+
+  num_workers:
+    train: 8
+    val: 8
+    test: 8
+
+  batch_size:
+    train: 128
+    val: 128
+    test: 128
+
+  val_percentage: 0.1

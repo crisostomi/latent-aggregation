@@ -225,3 +225,7 @@ fabric.properties
 src/la/outputs/
 outputs/
 multirun/
+results/
+exclude_rsync.txt
+.vscode/
+shell_scripts/
