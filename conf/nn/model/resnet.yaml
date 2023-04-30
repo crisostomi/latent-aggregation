@@ -1,0 +1,19 @@
+_target_: la.pl_modules.resnet.ResNet
+name: resnet
+
+model:
+  _target_: la.modules.resnet.ResNet
+  block:
+    _target_: hydra.utils.get_class
+    path: la.modules.resnet.BasicBlock
+  num_blocks: [3, 3, 3]
+
+optimizer:
+  _target_: torch.optim.SGD
+  lr: 0.1
+  momentum: 0.9
+  weight_decay: 1e-4
+
+lr_scheduler:
+  _target_: torch.optim.lr_scheduler.CosineAnnealingLR
+  T_max: 200

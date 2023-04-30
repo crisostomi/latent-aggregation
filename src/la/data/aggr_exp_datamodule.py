@@ -6,6 +6,7 @@ from typing import List, Mapping, Optional, Union
 import pytorch_lightning as pl
 from nn_core.nn_types import Split
 from omegaconf import DictConfig
+from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 
@@ -155,6 +156,7 @@ class MyDataModule(pl.LightningDataModule):
         self.shuffle_train = True
 
         train_samples = self.data[f"task_{self.task_ind}_train"]
+        val_samples = self.data[f"task_{self.task_ind}_val"]
         test_samples = self.data[f"task_{self.task_ind}_test"]
 
         map_params = {
@@ -168,21 +170,25 @@ class MyDataModule(pl.LightningDataModule):
             **map_params,
         )
 
+        val_samples = val_samples.map(desc=f"Transforming task {self.task_ind} val samples", **map_params)
+
         test_samples = test_samples.map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
 
-        anchors = self.data["anchors"].map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
+        anchors = self.data["anchors"].map(desc=f"Transforming task {self.task_ind} anchors", **map_params)
 
         train_samples.set_format(type="torch", columns=["x", "y"])
+        val_samples.set_format(type="torch", columns=["x", "y"])
         test_samples.set_format(type="torch", columns=["x", "y"])
         anchors.set_format(type="torch", columns=["x", "y"])
 
         self.data[f"task_{self.task_ind}_train"] = train_samples
+        self.data[f"task_{self.task_ind}_val"] = val_samples
         self.data[f"task_{self.task_ind}_test"] = test_samples
         self.data[f"task_{self.task_ind}_anchors"] = anchors
 
         self.train_dataset = train_samples
-        # TODO: use train subset for validation
-        self.val_dataset = test_samples
+        self.val_dataset = val_samples
+        self.test_dataset = test_samples
 
         self.seen_tasks.add(self.task_ind)
 
@@ -204,6 +210,16 @@ class MyDataModule(pl.LightningDataModule):
             num_workers=self.num_workers.val,
             pin_memory=self.pin_memory,
             collate_fn=partial(collate_fn, split="val", metadata=self.metadata),
+        )
+
+    def test_dataloader(self) -> DataLoader:
+        return DataLoader(
+            self.test_dataset,
+            shuffle=False,
+            batch_size=self.batch_size.test,
+            num_workers=self.num_workers.test,
+            pin_memory=self.pin_memory,
+            collate_fn=partial(collate_fn, split="test", metadata=self.metadata),
         )
 
     def __repr__(self) -> str:

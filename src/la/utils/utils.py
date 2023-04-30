@@ -164,3 +164,8 @@ def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
         callbacks.append(hydra.utils.instantiate(callback, _recursive_=False))
 
     return callbacks
+
+
+def save_dict_to_file(content, path):
+    with open(path, "w+") as f:
+        json.dump(content, f)

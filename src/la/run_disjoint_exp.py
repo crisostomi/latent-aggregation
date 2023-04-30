@@ -24,6 +24,7 @@ from torch.utils.data import DataLoader
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
+from la.pl_modules.pl_module import DataAugmentation, PreProcess
 from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
 
 disable_caching()
@@ -64,6 +65,7 @@ def run(cfg: DictConfig) -> str:
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
     num_classes = datamodule.data["metadata"]["num_classes"]
+
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
@@ -73,7 +75,6 @@ def run(cfg: DictConfig) -> str:
         model: pl.LightningModule = hydra.utils.instantiate(
             cfg.nn.model,
             _recursive_=False,
-            # TODO: set total number of classes
             num_classes=num_classes,
             model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
@@ -93,6 +94,10 @@ def run(cfg: DictConfig) -> str:
         datamodule.task_ind = task_ind
         datamodule.transform_func = transform_func
         datamodule.setup()
+
+        mean, std = get_dataset_stats(datamodule, task_ind)
+
+        model.preprocess = PreProcess(mean, std)
 
         # Instantiate the callbacks
         template_core: NNTemplateCore = NNTemplateCore(
@@ -120,7 +125,7 @@ def run(cfg: DictConfig) -> str:
             ckpt_path=template_core.trainer_ckpt_path,
         )
 
-        if "test" in cfg.nn.data.datasets and trainer.checkpoint_callback.best_model_path is not None:
+        if trainer.checkpoint_callback.best_model_path is not None:
             pylogger.info("Starting testing!")
             trainer.test(datamodule=datamodule)
 
@@ -145,7 +150,7 @@ def run(cfg: DictConfig) -> str:
         train_embeddings = torch.stack(train_embeddings)
 
         test_embeddings = []
-        for batch in tqdm(datamodule.val_dataloader(), desc="Embedding test samples"):
+        for batch in tqdm(datamodule.test_dataloader(), desc="Embedding test samples"):
             x = batch["x"].to("cuda")
             test_embeddings.extend(best_model(x)["embeds"].detach())
         test_embeddings = torch.stack(test_embeddings)
@@ -204,6 +209,14 @@ def run(cfg: DictConfig) -> str:
     datamodule.data.save_to_disk(cfg.nn.output_path)
 
     return logger.run_dir
+
+
+def get_dataset_stats(datamodule, task_ind):
+    x = datamodule.data[f"task_{task_ind}_train"]["x"]
+    mean = x.mean(dim=(0, 2, 3))
+    std = x.std(dim=(0, 2, 3))
+
+    return mean, std
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="disjoint_exp")

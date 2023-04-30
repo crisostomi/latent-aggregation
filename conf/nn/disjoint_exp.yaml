@@ -1,5 +1,5 @@
 defaults:
-  - model: efficient_net  # vanilla_cnn, efficient_net
+  - model: vanilla_cnn  # vanilla_cnn, efficient_net, resnet
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
 data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/partitioned
@@ -29,8 +29,8 @@ data:
     test: 8
 
   batch_size:
-    train: 128
-    val: 128
-    test: 128
+    train: 100
+    val: 100
+    test: 100
 
   val_percentage: 0.1
