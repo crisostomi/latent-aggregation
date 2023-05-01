@@ -260,7 +260,7 @@ def run_classification_experiment(
     results = trainer.test(model, test_dataloader)[0]
 
     results = {
-        "total_acc": results["test_acc_epoch"],
+        "total_acc": results["test_acc"],
     }
 
     return results

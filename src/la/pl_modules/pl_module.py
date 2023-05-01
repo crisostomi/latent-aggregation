@@ -17,6 +17,7 @@ from kornia.augmentation import (
     RandomCrop,
     Normalize,
 )
+from hydra.utils import instantiate
 
 pylogger = logging.getLogger(__name__)
 
@@ -24,17 +25,18 @@ pylogger = logging.getLogger(__name__)
 class MyLightningModule(pl.LightningModule):
     logger: NNLogger
 
-    def __init__(self, num_classes, *args, **kwargs) -> None:
+    def __init__(self, num_classes, transform_func, input_dim, *args, **kwargs) -> None:
         super().__init__()
 
         self.num_classes = num_classes
+        self.input_dim = input_dim
+        self.transform_func = instantiate(transform_func)
 
         metric = torchmetrics.Accuracy()
         self.train_accuracy = metric.clone()
         self.val_accuracy = metric.clone()
         self.test_accuracy = metric.clone()
-        self.data_augm = DataAugmentation()
-        self.preprocess = None
+        self.data_augm = DataAugmentation(input_dim)
 
     def step(self, x, y) -> Mapping[str, Any]:
         logits = self(x)["logits"]
@@ -43,7 +45,6 @@ class MyLightningModule(pl.LightningModule):
 
     def on_after_batch_transfer(self, batch, dataloader_idx):
         x = batch["x"]
-        x = self.preprocess(x)
 
         if self.trainer.training:
             x = self.data_augm(x)
@@ -116,28 +117,13 @@ class MyLightningModule(pl.LightningModule):
 class DataAugmentation(nn.Module):
     """Module to perform data augmentation using Kornia on torch tensors."""
 
-    def __init__(self) -> None:
+    def __init__(self, input_dim) -> None:
         super().__init__()
 
         self.transforms = nn.Sequential(
             RandomHorizontalFlip(p=0.5),
             RandomRotation(degrees=30),
-            RandomCrop((32, 32)),
-        )
-
-    def forward(self, x: Tensor) -> Tensor:
-        x_out = self.transforms(x)  # BxCxHxW
-        return x_out
-
-
-class PreProcess(nn.Module):
-    """Module to perform preprocessing on torch tensors."""
-
-    def __init__(self, std, mean) -> None:
-        super().__init__()
-
-        self.transforms = nn.Sequential(
-            Normalize(mean=mean, std=std),
+            RandomCrop((input_dim, input_dim)),
         )
 
     def forward(self, x: Tensor) -> Tensor:

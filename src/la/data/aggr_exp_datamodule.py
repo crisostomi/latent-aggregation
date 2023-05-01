@@ -9,6 +9,7 @@ from omegaconf import DictConfig
 from pytorch_lightning.utilities.types import EVAL_DATALOADERS
 from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
+from datasets import Dataset, concatenate_datasets
 
 from la.data.prelim_exp_dataset import MyDataset
 from la.utils.utils import MyDatasetDict
@@ -97,9 +98,9 @@ class MyDataModule(pl.LightningDataModule):
         num_workers: DictConfig,
         batch_size: DictConfig,
         gpus: Optional[Union[List[int], str, int]],
-        val_percentage: float,
         data_path: Path,
         only_use_sample_num: int = -1,
+        train_on_anchors: bool = False,
     ):
         super().__init__()
         self.datasets = datasets
@@ -109,25 +110,28 @@ class MyDataModule(pl.LightningDataModule):
         self.pin_memory: bool = gpus is not None and str(gpus) != "0"
         self.pin_memory = False
 
-        self.train_dataset: Optional[MyDataset] = None
-        self.val_dataset: Optional[MyDataset] = None
-
-        self.val_percentage: float = val_percentage
+        self.datasets = {"train": None, "val": None, "test": None}
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
 
         self.img_size = self.data["task_0_train"][0]["x"].size[1]
 
         self.tasks = {key for key in self.data.keys() if key != "metadata"}
+        self.num_tasks = self.data["metadata"]["num_tasks"]
 
         self.task_ind = None  # will be set in setup
         self.transform_func = None  # will be set in setup
         self.shuffle_train = True
+        self.train_on_anchors = train_on_anchors
 
         self.only_use_sample_num = only_use_sample_num
         if only_use_sample_num >= 0:
             for task in self.tasks:
                 self.data[task] = self.data[task].select(range(only_use_sample_num))
+
+        # all tasks will have the same anchors
+        for task_ind in range(self.num_tasks + 1):
+            self.data[f"task_{task_ind}_anchors"] = self.data["anchors"]
 
         self.seen_tasks = set()
 
@@ -155,46 +159,30 @@ class MyDataModule(pl.LightningDataModule):
 
         self.shuffle_train = True
 
-        train_samples = self.data[f"task_{self.task_ind}_train"]
-        val_samples = self.data[f"task_{self.task_ind}_val"]
-        test_samples = self.data[f"task_{self.task_ind}_test"]
-
         map_params = {
             "function": lambda x: {"x": self.transform_func(x["x"])},
             "writer_batch_size": 100,
             "num_proc": 1,
         }
 
-        train_samples = train_samples.map(
-            desc=f"Transforming task {self.task_ind} train samples",
-            **map_params,
-        )
+        modes = ["train", "val", "test", "anchors"]
 
-        val_samples = val_samples.map(desc=f"Transforming task {self.task_ind} val samples", **map_params)
+        for mode in modes:
+            self.data[f"task_{self.task_ind}_{mode}"] = self.data[f"task_{self.task_ind}_{mode}"].map(
+                desc=f"Transforming task {self.task_ind} {mode} samples", **map_params
+            )
 
-        test_samples = test_samples.map(desc=f"Transforming task {self.task_ind} test samples", **map_params)
+            self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y"])
+            self.datasets[mode] = self.data[f"task_{self.task_ind}_{mode}"]
 
-        anchors = self.data["anchors"].map(desc=f"Transforming task {self.task_ind} anchors", **map_params)
-
-        train_samples.set_format(type="torch", columns=["x", "y"])
-        val_samples.set_format(type="torch", columns=["x", "y"])
-        test_samples.set_format(type="torch", columns=["x", "y"])
-        anchors.set_format(type="torch", columns=["x", "y"])
-
-        self.data[f"task_{self.task_ind}_train"] = train_samples
-        self.data[f"task_{self.task_ind}_val"] = val_samples
-        self.data[f"task_{self.task_ind}_test"] = test_samples
-        self.data[f"task_{self.task_ind}_anchors"] = anchors
-
-        self.train_dataset = train_samples
-        self.val_dataset = val_samples
-        self.test_dataset = test_samples
+        if self.train_on_anchors:
+            self.datasets["train"] = concatenate_datasets(self.datasets["train"], self.datasets["anchors"])
 
         self.seen_tasks.add(self.task_ind)
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.train_dataset,
+            self.datasets["train"],
             shuffle=self.shuffle_train,
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
@@ -204,7 +192,7 @@ class MyDataModule(pl.LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.val_dataset,
+            self.datasets["val"],
             shuffle=False,
             batch_size=self.batch_size.val,
             num_workers=self.num_workers.val,
@@ -214,7 +202,7 @@ class MyDataModule(pl.LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.test_dataset,
+            self.datasets["test"],
             shuffle=False,
             batch_size=self.batch_size.test,
             num_workers=self.num_workers.test,

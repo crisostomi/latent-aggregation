@@ -1,5 +1,6 @@
 _target_: la.pl_modules.efficient_net.MyEfficientNet
 name: efficient_net
+input_dim: ???
 
 model:
   embedder:
@@ -19,3 +20,15 @@ model:
 
 optimizer:
   _target_: torch.optim.Adam
+
+transform_func:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.Resize
+      size: 256
+    - _target_: torchvision.transforms.CenterCrop
+      size: [224, 224]
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]

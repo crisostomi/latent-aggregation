@@ -32,5 +32,3 @@ data:
     train: 100
     val: 100
     test: 100
-
-  val_percentage: 0.1

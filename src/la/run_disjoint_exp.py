@@ -24,7 +24,7 @@ from torch.utils.data import DataLoader
 import la  # noqa
 from la.data.prelim_exp_datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
-from la.pl_modules.pl_module import DataAugmentation, PreProcess
+from la.pl_modules.pl_module import DataAugmentation
 from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
 
 disable_caching()
@@ -44,24 +44,10 @@ def run(cfg: DictConfig) -> str:
 
     pylogger.info(f"Running experiment on {cfg.nn.dataset_name}")
 
-    fast_dev_run: bool = cfg.train.trainer.fast_dev_run
-    if fast_dev_run:
-        pylogger.info(f"Debug mode <{cfg.train.trainer.fast_dev_run=}>. Forcing debugger friendly configuration!")
-        # Debuggers don't like GPUs nor multiprocessing
-        cfg.train.trainer.gpus = 0
-        cfg.nn.data.num_workers.train = 0
-        cfg.nn.data.num_workers.val = 0
-        cfg.nn.data.num_workers.test = 0
-
     cfg.core.tags = enforce_tags(cfg.core.get("tags", None))
 
-    # Instantiate datamodule
     pylogger.info(f"Instantiating <{cfg.nn.data['_target_']}>")
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
-
-    metadata: Optional[MetaData] = getattr(datamodule, "metadata", None)
-    if metadata is None:
-        pylogger.warning(f"No 'metadata' attribute found in datamodule <{datamodule.__class__.__name__}>")
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
     num_classes = datamodule.data["metadata"]["num_classes"]
@@ -69,9 +55,7 @@ def run(cfg: DictConfig) -> str:
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
-        # Instantiate model
         pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
-
         model: pl.LightningModule = hydra.utils.instantiate(
             cfg.nn.model,
             _recursive_=False,
@@ -80,38 +64,20 @@ def run(cfg: DictConfig) -> str:
             input_dim=datamodule.img_size,
         )
 
-        transform_func = Compose(
-            [
-                ToTensor(),
-                ToFloatRange(),
-            ]
-        )
-
-        if isinstance(model, MyEfficientNet):
-            config = resolve_data_config({}, model=model.embedder)
-            transform_func = create_transform(**config)
-
         datamodule.task_ind = task_ind
-        datamodule.transform_func = transform_func
+        datamodule.transform_func = model.transform_func
         datamodule.setup()
 
-        mean, std = get_dataset_stats(datamodule, task_ind)
-
-        model.preprocess = PreProcess(mean, std)
-
-        # Instantiate the callbacks
         template_core: NNTemplateCore = NNTemplateCore(
             restore_cfg=cfg.train.get("restore", None),
         )
         callbacks: List[Callback] = build_callbacks(cfg.train.callbacks, template_core)
 
-        storage_dir: str = cfg.core.storage_dir
-
         logger: NNLogger = NNLogger(logging_cfg=cfg.train.logging, cfg=cfg, resume_id=template_core.resume_id)
 
         pylogger.info("Instantiating the <Trainer>")
         trainer = pl.Trainer(
-            default_root_dir=storage_dir,
+            default_root_dir=cfg.core.storage_dir,
             plugins=[NNCheckpointIO(jailing_dir=logger.run_dir)],
             logger=logger,
             callbacks=callbacks,
@@ -139,65 +105,7 @@ def run(cfg: DictConfig) -> str:
 
         best_model.eval().cuda()
 
-        training_samples = datamodule.data[f"task_{task_ind}_train"]
-        test_samples = datamodule.data[f"task_{task_ind}_test"]
-
-        datamodule.shuffle_train = False
-        train_embeddings = []
-        for batch in tqdm(datamodule.train_dataloader(), desc="Embedding training samples"):
-            x = batch["x"].to("cuda")
-            train_embeddings.extend(best_model(x)["embeds"].detach())
-        train_embeddings = torch.stack(train_embeddings)
-
-        test_embeddings = []
-        for batch in tqdm(datamodule.test_dataloader(), desc="Embedding test samples"):
-            x = batch["x"].to("cuda")
-            test_embeddings.extend(best_model(x)["embeds"].detach())
-        test_embeddings = torch.stack(test_embeddings)
-
-        map_params = {
-            "with_indices": True,
-            "batched": True,
-            "batch_size": 128,
-            "num_proc": 1,
-            "writer_batch_size": 10,
-        }
-
-        training_samples = training_samples.map(
-            function=lambda x, ind: {
-                "embedding": train_embeddings[ind],
-            },
-            desc="Storing embedded training samples",
-            **map_params,
-            remove_columns=["x"],
-        )
-
-        test_samples = test_samples.map(
-            function=lambda x, ind: {
-                "embedding": test_embeddings[ind],
-            },
-            desc="Storing embedded test samples",
-            remove_columns=["x"],
-            **map_params,
-        )
-
-        anchors = datamodule.data[f"task_{task_ind}_anchors"]
-        anchors_dataloader = DataLoader(anchors, batch_size=128, num_workers=0)
-
-        anchor_embeddings = []
-        for batch in tqdm(anchors_dataloader, desc="Embedding anchors"):
-            x = batch["x"].to("cuda")
-            anchor_embeddings.extend(best_model(x)["embeds"].detach())
-        anchor_embeddings = torch.stack(anchor_embeddings)
-
-        anchors = anchors.map(
-            function=lambda x, ind: {
-                "embedding": anchor_embeddings[ind],
-            },
-            desc="Storing embedded anchors",
-            remove_columns=["x"],
-            **map_params,
-        )
+        training_samples, test_samples, anchors = embed_all_samples(datamodule, task_ind, best_model)
 
         datamodule.data[f"task_{task_ind}_train"] = training_samples
         datamodule.data[f"task_{task_ind}_test"] = test_samples
@@ -211,12 +119,68 @@ def run(cfg: DictConfig) -> str:
     return logger.run_dir
 
 
-def get_dataset_stats(datamodule, task_ind):
-    x = datamodule.data[f"task_{task_ind}_train"]["x"]
-    mean = x.mean(dim=(0, 2, 3))
-    std = x.std(dim=(0, 2, 3))
+def embed_all_samples(datamodule, task_ind, best_model):
+    training_samples = datamodule.data[f"task_{task_ind}_train"]
+    test_samples = datamodule.data[f"task_{task_ind}_test"]
 
-    return mean, std
+    datamodule.shuffle_train = False
+    train_embeddings = []
+    for batch in tqdm(datamodule.train_dataloader(), desc="Embedding training samples"):
+        x = batch["x"].to("cuda")
+        train_embeddings.extend(best_model(x)["embeds"].detach())
+    train_embeddings = torch.stack(train_embeddings)
+
+    test_embeddings = []
+    for batch in tqdm(datamodule.test_dataloader(), desc="Embedding test samples"):
+        x = batch["x"].to("cuda")
+        test_embeddings.extend(best_model(x)["embeds"].detach())
+    test_embeddings = torch.stack(test_embeddings)
+
+    map_params = {
+        "with_indices": True,
+        "batched": True,
+        "batch_size": 128,
+        "num_proc": 1,
+        "writer_batch_size": 10,
+    }
+
+    training_samples = training_samples.map(
+        function=lambda x, ind: {
+            "embedding": train_embeddings[ind],
+        },
+        desc="Storing embedded training samples",
+        remove_columns=["x"],
+        **map_params,
+    )
+
+    test_samples = test_samples.map(
+        function=lambda x, ind: {
+            "embedding": test_embeddings[ind],
+        },
+        desc="Storing embedded test samples",
+        remove_columns=["x"],
+        **map_params,
+    )
+
+    anchors = datamodule.data[f"task_{task_ind}_anchors"]
+    anchors_dataloader = DataLoader(anchors, batch_size=128, num_workers=0)
+
+    anchor_embeddings = []
+    for batch in tqdm(anchors_dataloader, desc="Embedding anchors"):
+        x = batch["x"].to("cuda")
+        anchor_embeddings.extend(best_model(x)["embeds"].detach())
+    anchor_embeddings = torch.stack(anchor_embeddings)
+
+    anchors = anchors.map(
+        function=lambda x, ind: {
+            "embedding": anchor_embeddings[ind],
+        },
+        desc="Storing embedded anchors",
+        remove_columns=["x"],
+        **map_params,
+    )
+
+    return training_samples, test_samples, anchors
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="disjoint_exp")

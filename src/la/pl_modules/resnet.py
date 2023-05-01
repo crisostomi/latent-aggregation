@@ -16,8 +16,8 @@ pylogger = logging.getLogger(__name__)
 class ResNet(MyLightningModule):
     logger: NNLogger
 
-    def __init__(self, num_classes, model: DictConfig, *args, **kwargs) -> None:
-        super().__init__(num_classes=num_classes, *args, **kwargs)
+    def __init__(self, num_classes, input_dim, model: DictConfig, *args, **kwargs) -> None:
+        super().__init__(num_classes=num_classes, input_dim=input_dim, *args, **kwargs)
 
         self.save_hyperparameters(logger=False, ignore=("metadata",))
 

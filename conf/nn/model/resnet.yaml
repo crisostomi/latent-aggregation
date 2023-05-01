@@ -1,5 +1,6 @@
 _target_: la.pl_modules.resnet.ResNet
 name: resnet
+input_dim: ???
 
 model:
   _target_: la.modules.resnet.ResNet
@@ -17,3 +18,11 @@ optimizer:
 lr_scheduler:
   _target_: torch.optim.lr_scheduler.CosineAnnealingLR
   T_max: 200
+
+transform_func:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]

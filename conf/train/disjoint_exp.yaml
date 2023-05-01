@@ -11,6 +11,7 @@ trainer:
   num_sanity_val_steps: 2
   gradient_clip_val: 10.0
   val_check_interval: 1.0
+  check_val_every_n_epoch: 5
   deterministic: ${train.deterministic}
 
 restore:
@@ -23,7 +24,7 @@ monitor:
 
 callbacks:
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    patience: 30
+    patience: 5 # it actually means K * n, where K is the patience and n is from check_val_every_n_epochs
     verbose: False
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
@@ -39,7 +40,7 @@ callbacks:
     log_momentum: False
 
   - _target_: pytorch_lightning.callbacks.progress.tqdm_progress.TQDMProgressBar
-    refresh_rate: 20
+    refresh_rate: 1000
 
 logging:
   upload:

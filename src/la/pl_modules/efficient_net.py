@@ -8,7 +8,7 @@ from nn_core.model_logging import NNLogger
 from omegaconf import DictConfig
 from torch.optim import Optimizer
 
-from la.pl_modules.pl_module import MyLightningModule
+from la.pl_modules.pl_module import DataAugmentation, MyLightningModule
 
 pylogger = logging.getLogger(__name__)
 
@@ -16,8 +16,8 @@ pylogger = logging.getLogger(__name__)
 class MyEfficientNet(MyLightningModule):
     logger: NNLogger
 
-    def __init__(self, num_classes, model: DictConfig, *args, **kwargs) -> None:
-        super().__init__(num_classes=num_classes, *args, **kwargs)
+    def __init__(self, num_classes, input_dim, model: DictConfig, *args, **kwargs) -> None:
+        super().__init__(num_classes=num_classes, input_dim=input_dim, *args, **kwargs)
 
         self.save_hyperparameters(logger=False, ignore=("metadata",))
 
@@ -27,6 +27,8 @@ class MyEfficientNet(MyLightningModule):
         )
 
         self.classifier = instantiate(model.classifier, out_features=num_classes)
+        # differently from other models, EfficientNet works on 224x224 images
+        self.data_augm = DataAugmentation(input_dim=224)
 
     def forward(self, x: torch.Tensor) -> Dict:
         """Method for the forward pass.
