@@ -9,7 +9,7 @@ import torch.nn.functional as F
 import torchmetrics
 from nn_core.model_logging import NNLogger
 from kornia.augmentation import (
-    ColorJitter,
+    ColorJiggle,
     RandomChannelShuffle,
     RandomHorizontalFlip,
     RandomThinPlateSpline,
@@ -124,6 +124,7 @@ class DataAugmentation(nn.Module):
             RandomHorizontalFlip(p=0.5),
             RandomRotation(degrees=30),
             RandomCrop((input_dim, input_dim)),
+            ColorJiggle(0.2, 0.2, 0.2, 0.2, p=0.5),
         )
 
     def forward(self, x: Tensor) -> Tensor:

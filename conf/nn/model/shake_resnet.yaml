@@ -1,14 +1,12 @@
 _target_: la.pl_modules.resnet.ResNet
-name: resnet
+name: shake_resnet
 input_dim: ???
 
 model:
-  _target_: la.modules.resnet.ResNet
-  block:
-    _target_: hydra.utils.get_class
-    path: la.modules.resnet.BasicBlock
-  num_blocks: [3, 3, 3]
-
+  _target_: la.modules.shake_resnet.ShakeResNet
+  depth: 20
+  w_base: 16
+  num_classes: ???
 
 optimizer:
   _target_: torch.optim.SGD

@@ -163,7 +163,7 @@ def embed_all_samples(datamodule, task_ind, best_model):
     )
 
     anchors = datamodule.data[f"task_{task_ind}_anchors"]
-    anchors_dataloader = DataLoader(anchors, batch_size=128, num_workers=0)
+    anchors_dataloader = DataLoader(anchors, batch_size=128, num_workers=8)
 
     anchor_embeddings = []
     for batch in tqdm(anchors_dataloader, desc="Embedding anchors"):

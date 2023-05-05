@@ -1,5 +1,5 @@
 defaults:
-  - model: vanilla_cnn  # vanilla_cnn, efficient_net, resnet
+  - model: shake_resnet  # vanilla_cnn, efficient_net, resnet
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
 data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/partitioned

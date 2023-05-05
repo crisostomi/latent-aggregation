@@ -99,6 +99,15 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     check_same_anchor_ids(data, num_tasks)
 
+    centering = False
+    if centering:
+        for task_ind in range(num_tasks + 1):
+            for mode in ["train", "test", "anchors"]:
+                embedding_mean = data[f"task_{task_ind}_{mode}"]["embedding"].mean(dim=0)
+                data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_train"].map(
+                    lambda row: {"embedding": row["embedding"] - embedding_mean}
+                )
+
     # map to relative
     for task_ind in range(0, num_tasks + 1):
         task_anchors = data[f"task_{task_ind}_anchors"]["embedding"]
@@ -273,6 +282,7 @@ def run_knn_class_experiment(
     use_relatives: bool,
 ):
     seed_everything(42)
+    torch.backends.cudnn.deterministic = True
 
     dataloader_func = partial(
         torch.utils.data.DataLoader,
