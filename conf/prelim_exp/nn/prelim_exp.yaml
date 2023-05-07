@@ -1,0 +1,60 @@
+task: digits
+data:
+  _target_: la.data.prelim_exp_datamodule.MyDataModule
+  classes_to_discard: {4} # {6}
+
+  datasets:
+    train:
+      _target_: la.data.dataset.MyDataset
+      samples: ???
+      split: ???
+      class_vocab: ???
+
+    val:
+      - _target_: la.data.dataset.MyDataset
+        samples: ???
+        split: ???
+        class_vocab: ???
+
+    test:
+      - _target_: la.data.dataset.MyDataset
+        samples: ???
+        split: ???
+        class_vocab: ???
+
+  gpus: ${train.trainer.gpus}
+
+  num_workers:
+    train: 8
+    val: 4
+    test: 4
+
+  batch_size:
+    train: 32
+    val: 16
+    test: 16
+
+  val_percentage: 0.1
+
+module:
+  _target_: la.pl_modules.pl_module.MyLightningModule
+  task: ${nn.task}
+
+  models:
+    vanilla:
+      _target_: la.modules.CNN.CNN
+    colored:
+      _target_: la.modules.CNN.CNN
+    three_dim:
+      _target_: la.modules.CNN3D.CNN3D
+
+  optimizer:
+    _target_: torch.optim.Adam
+
+  lr_scheduler:
+    _target_: torch.optim.lr_scheduler.CosineAnnealingWarmRestarts
+    T_0: 10
+    T_mult: 2
+    eta_min: 0
+    last_epoch: -1
+    verbose: False

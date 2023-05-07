@@ -1,0 +1,14 @@
+defaults:
+  - dataset: cifar100
+
+seed: 42
+use_cached: true
+per_task_val_percentage: 0.1
+
+image_key: x
+label_key: y
+num_shared_classes: 80 # S
+num_novel_classes_per_task: 5 # N
+
+dataset_folder: ${oc.env:PROJECT_ROOT}/data/${dataset.name}
+output_path: ${dataset_folder}/part_shared_part_novel/S${num_shared_classes}_N${num_novel_classes_per_task}

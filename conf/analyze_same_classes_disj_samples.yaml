@@ -1,0 +1,54 @@
+seed_index: 1
+deterministic: False
+num_anchors: 256
+
+
+tag: ""
+cka_results_path: ${oc.env:PROJECT_ROOT}/results/disj_cka_analysis_A${num_anchors}${tag}.json
+class_results_path: ${oc.env:PROJECT_ROOT}/results/disj_class_analysis_A${num_anchors}${tag}.json
+knn_results_path: ${oc.env:PROJECT_ROOT}/results/disj_knn_analysis_A${num_anchors}${tag}.json
+
+has_coarse_label:
+  cifar100: True
+  tiny_imagenet: False
+
+dataset_names:
+  - cifar100
+  - tiny_imagenet
+
+model_names:
+  - efficient_net
+  - from_scratch_cnn
+  - resnet
+  - shake_resnet
+
+num_total_classes:
+  cifar100: 100
+  tiny_imagenet: 200
+
+classifier_embed_dim: 256
+
+configurations:
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+
+  - dataset_name: cifar100
+    model_name: efficient_net
+
+  - dataset_name: cifar100
+    model_name: resnet
+
+  - dataset_name: cifar100
+    model_name: shake_resnet
+
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
+
+  - dataset_name: tiny_imagenet
+    model_name: efficient_net
+
+  - dataset_name: tiny_imagenet
+    model_name: resnet
+
+  # - dataset_name: tiny_imagenet
+  #   model_name: shake_resnet

@@ -1,0 +1,22 @@
+defaults:
+  - dataset: cifar100
+
+
+image_key: x
+label_key: y
+num_tasks: 2
+classes_partitions:
+  - [0, 100]   # C1
+  - [100, 200] # C2
+val_perc_per_task: 0.1
+num_anchors: 1000
+
+subset_percentages: # as many as num_tasks
+  - [0.8, 0.2] # each list as long as the number of classes partitions
+  - [0.2, 0.8]
+
+seed: 42
+use_cached: true
+
+dataset_folder: ${oc.env:PROJECT_ROOT}/data/${dataset.name}
+output_path: "${dataset_folder}/same_classes_disj_samples/partition-1"
