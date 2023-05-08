@@ -51,9 +51,9 @@ Re-install the project in edit mode:
 pip install -e .[dev]
 ```
 
-# Experiment flow
+## Experiment flow
 
-Each experiment `exp_name` has three scripts:
+Each experiment `exp_name` in `part_shared_part_novel, same_classes_disj_samples, totally_disjoint` has three scripts:
 - `prepare_data_${exp_name}.py` divides the data in tasks according to what the experiment expects;
 - `run_${exp_name}.py` trains the task-specific models and uses them to embed the data for each task;
 - `analyze_${exp_name}.py` obtains the results for the experiment.
