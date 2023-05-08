@@ -32,7 +32,11 @@ Run the tests:
 ```bash
 pre-commit run --all-files
 ```
-
+We use HuggingFace Datasets throughout the project; assuming you already have a HF account (create one if you don't), you will have to login via
+```
+huggingface-cli login
+```
+which will prompt you to either create a new token or paste an existing one.
 
 ### Update the dependencies
 
