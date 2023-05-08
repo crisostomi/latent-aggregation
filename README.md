@@ -10,14 +10,6 @@
 
 Aggregating seemingly different latent spaces.
 
-
-## Installation
-
-```bash
-pip install git+ssh://git@github.com/crisostomi/latent-aggregation.git
-```
-
-
 ## Quickstart
 
 [comment]: <> (> Fill me!)
