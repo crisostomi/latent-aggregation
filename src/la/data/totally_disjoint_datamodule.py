@@ -18,7 +18,7 @@ from la.utils.utils import MyDatasetDict
 pylogger = logging.getLogger(__name__)
 
 
-class SameClassesDisjSamplesDatamodule(MyDataModule):
+class TotallyDisjointDatamodule(MyDataModule):
     def __init__(
         self,
         num_workers: DictConfig,
@@ -26,7 +26,6 @@ class SameClassesDisjSamplesDatamodule(MyDataModule):
         gpus: Optional[Union[List[int], str, int]],
         data_path: Path,
         only_use_sample_num: int = -1,
-        train_on_anchors: bool = False,
     ):
         super().__init__(
             num_workers=num_workers,
@@ -42,7 +41,6 @@ class SameClassesDisjSamplesDatamodule(MyDataModule):
 
         self.datasets = {"train": {}, "val": {}, "test": {}, "anchors": {}}
 
-        self.train_on_anchors = train_on_anchors
         self.seen_tasks = set()
 
     def setup(self, stage: Optional[str] = None) -> None:
@@ -68,33 +66,4 @@ class SameClassesDisjSamplesDatamodule(MyDataModule):
             self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y"])
             self.datasets[mode][self.task_ind] = self.data[f"task_{self.task_ind}_{mode}"]
 
-        if self.train_on_anchors:
-            self.datasets["train"][self.task_ind] = concatenate_datasets(
-                self.datasets["train"], self.datasets["anchors"]
-            )
-
         self.seen_tasks.add(self.task_ind)
-
-    def test_dataloader(self) -> List[DataLoader]:
-        test_dataloader_params = {
-            "shuffle": False,
-            "batch_size": self.batch_size.test,
-            "num_workers": self.num_workers.test,
-            "collate_fn": partial(collate_fn, split="test", metadata=self.metadata),
-        }
-
-        task_specific_dataloader = DataLoader(
-            self.datasets["test"][self.task_ind],
-            **test_dataloader_params,
-        )
-
-        dataloaders = [task_specific_dataloader]
-
-        if self.task_ind >= 1:
-            global_dataloader = DataLoader(
-                self.datasets["test"][0],
-                **test_dataloader_params,
-            )
-            dataloaders.append(global_dataloader)
-
-        return dataloaders

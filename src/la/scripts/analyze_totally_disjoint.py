@@ -80,8 +80,10 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=dataset_path)
 
-    num_total_classes = global_cfg.num_total_classes[dataset_name]
     num_tasks = data["metadata"]["num_tasks"]
+    num_total_classes = global_cfg.num_total_classes[dataset_name]
+
+    map_labels_to_global(data, num_tasks)
 
     tensor_columns = ["embedding", "y", "id"]
     set_torch_format(data, num_tasks, modes=["train", "test", "anchors"], tensor_columns=tensor_columns)
@@ -210,6 +212,18 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     }
 
     return cka_results, class_results, knn_results
+
+
+def map_labels_to_global(data, num_tasks):
+    for task_ind in range(1, num_tasks + 1):
+        global_to_local_map = data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
+        local_to_global_map = {v: int(k) for k, v in global_to_local_map.items()}
+
+        for mode in ["train", "val", "test"]:
+            data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
+                lambda row: {"y": local_to_global_map[row["y"].item()]},
+                desc="Mapping labels back to global.",
+            )
 
 
 def set_torch_format(data, num_tasks, modes, tensor_columns):
@@ -408,7 +422,7 @@ class Model(pytorch_lightning.LightningModule):
         return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_same_classes_disj_samples")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_totally_disjoint")
 def main(cfg: omegaconf.DictConfig):
     run(cfg)
 

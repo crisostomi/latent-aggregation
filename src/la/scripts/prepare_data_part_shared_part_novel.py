@@ -20,7 +20,7 @@ from datasets import (
 from nn_core.common import PROJECT_ROOT
 from omegaconf import DictConfig, omegaconf
 from pytorch_lightning import seed_everything
-from la.utils.io_utils import load_data, save_dataset_to_disk
+from la.utils.io_utils import add_ids_to_dataset, load_data, preprocess_dataset, save_dataset_to_disk
 
 from la.utils.utils import MyDatasetDict, convert_to_rgb
 
@@ -36,29 +36,9 @@ def run(cfg: DictConfig):
 
     dataset = load_data(cfg)
 
-    # standardize label key and image key
-    dataset = dataset.map(
-        lambda x: {cfg.label_key: x[cfg.dataset.label_key]},
-        remove_columns=[cfg.dataset.label_key],
-        desc="Standardizing label key",
-    )
-    dataset = dataset.map(
-        lambda x: {cfg.image_key: x[cfg.dataset.image_key]},
-        batched=True,
-        remove_columns=[cfg.dataset.image_key],
-        desc="Standardizing image key",
-    )
+    dataset = preprocess_dataset(dataset, cfg)
 
-    # in case some images are not RGB, convert them to RGB
-    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
-
-    # add ids
-    N = len(dataset["train"])
-    M = len(dataset["test"])
-    indices = {"train": list(range(N)), "test": list(range(N, N + M))}
-
-    for mode in ["train", "test"]:
-        dataset[mode] = dataset[mode].map(lambda row, ind: {"id": indices[mode][ind]}, with_indices=True)
+    dataset = add_ids_to_dataset(dataset)
 
     if isinstance(dataset["train"].features[cfg.label_key], Value):
         all_classes = [str(class_id) for class_id in range(cfg.dataset.num_classes)]

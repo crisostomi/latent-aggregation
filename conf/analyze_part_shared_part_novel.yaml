@@ -48,20 +48,20 @@ configurations:
     num_shared_classes: 80
     num_novel_classes: 5
 
-  # - dataset_name: cifar100
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 60
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    num_shared_classes: 60
+    num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 40
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    num_shared_classes: 40
+    num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 20
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    num_shared_classes: 20
+    num_novel_classes: 10
 
   # - dataset_name: tiny_imagenet
   #   model_name: efficient_net
@@ -73,12 +73,12 @@ configurations:
   #   num_shared_classes: 50
   #   num_novel_classes: 25
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 100
-  #   num_novel_classes: 20
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
+    num_shared_classes: 100
+    num_novel_classes: 20
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 50
-  #   num_novel_classes: 25
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
+    num_shared_classes: 50
+    num_novel_classes: 25

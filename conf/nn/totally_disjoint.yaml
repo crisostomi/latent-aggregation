@@ -2,11 +2,11 @@ defaults:
   - model: vanilla_cnn  # vanilla_cnn, efficient_net, resnet, shake_resnet
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
-data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/same_classes_disj_samples/partition-1
+data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/totally_disjoint/partition-1
 output_path: ${nn.data_path}_${nn.model.name}
 
 data:
-  _target_: la.data.same_classes_disj_samples_datamodule.SameClassesDisjSamplesDatamodule
+  _target_: la.data.totally_disjoint_datamodule.TotallyDisjointDatamodule
   data_path: ${nn.data_path}
   only_use_sample_num: -1 # -1 means use all samples
 

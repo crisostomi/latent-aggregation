@@ -49,16 +49,17 @@ def run(cfg: DictConfig) -> str:
     datamodule: pl.LightningDataModule = hydra.utils.instantiate(cfg.nn.data, _recursive_=False)
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
-    num_classes = datamodule.data["metadata"]["num_classes"]
 
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
+
+        task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
         model: pl.LightningModule = hydra.utils.instantiate(
             cfg.nn.model,
             _recursive_=False,
-            num_classes=num_classes,
+            num_classes=len(task_class_vocab),
             model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
         )
@@ -134,7 +135,7 @@ def embed_all_samples(datamodule, model, task_ind):
 
     test_embeddings = []
     # this is not the whole test set, but only the test set of the current task
-    for batch in tqdm(datamodule.test_dataloader()[0], desc="Embedding test samples"):
+    for batch in tqdm(datamodule.test_dataloader(), desc="Embedding test samples"):
         x = batch["x"].to("cuda")
         test_embeddings.extend(model(x)["embeds"].detach())
     test_embeddings = torch.stack(test_embeddings)
@@ -186,7 +187,7 @@ def embed_all_samples(datamodule, model, task_ind):
     return training_samples, test_samples, anchors
 
 
-@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="run_same_classes_disj_samples")
+@hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="run_totally_disjoint")
 def main(cfg: omegaconf.DictConfig):
     run(cfg)
 

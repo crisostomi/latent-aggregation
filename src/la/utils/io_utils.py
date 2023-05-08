@@ -1,6 +1,6 @@
 from collections import namedtuple
 from pathlib import Path
-from la.utils.utils import MyDatasetDict
+from la.utils.utils import MyDatasetDict, convert_to_rgb
 from datasets import (
     load_dataset,
     DatasetDict,
@@ -51,3 +51,33 @@ def save_dataset_to_disk(dataset, output_path):
         output_path.mkdir(parents=True)
 
     dataset.save_to_disk(output_path)
+
+
+def preprocess_dataset(dataset, cfg):
+    dataset = dataset.map(
+        lambda x: {cfg.label_key: x[cfg.dataset.label_key]},
+        remove_columns=[cfg.dataset.label_key],
+        desc="Standardizing label key",
+    )
+    dataset = dataset.map(
+        lambda x: {cfg.image_key: x[cfg.dataset.image_key]},
+        batched=True,
+        remove_columns=[cfg.dataset.image_key],
+        desc="Standardizing image key",
+    )
+
+    # in case some images are not RGB, convert them to RGB
+    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
+
+    return dataset
+
+
+def add_ids_to_dataset(dataset):
+    N = len(dataset["train"])
+    M = len(dataset["test"])
+    indices = {"train": list(range(N)), "test": list(range(N, N + M))}
+
+    for mode in ["train", "test"]:
+        dataset[mode] = dataset[mode].map(lambda row, ind: {"id": indices[mode][ind]}, with_indices=True)
+
+    return dataset

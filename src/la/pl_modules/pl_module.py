@@ -95,7 +95,7 @@ class MyLightningModule(pl.LightningModule):
 
         return step_out
 
-    def test_step(self, batch: Any, batch_idx: int) -> Mapping[str, Any]:
+    def test_step(self, batch: Any, batch_idx: int, dataloader_idx: int = 0) -> Mapping[str, Any]:
         x, y = batch["x"], batch["y"]
         step_out = self.step(x, y)
 
@@ -106,7 +106,7 @@ class MyLightningModule(pl.LightningModule):
         self.test_accuracy(torch.softmax(step_out["logits"], dim=-1), y)
         self.log_dict(
             {
-                "acc/test": self.test_accuracy,
+                f"acc/test": self.test_accuracy,
             },
             on_epoch=True,
         )

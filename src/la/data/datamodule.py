@@ -106,7 +106,8 @@ class MyDataModule(pl.LightningDataModule):
         self.pin_memory: bool = gpus is not None and str(gpus) != "0"
         self.pin_memory = False
 
-        self.datasets = {"train": None, "val": None, "test": None}
+        # each mode will have multiple tasks
+        self.datasets = {"train": {}, "val": {}, "test": {}}
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
 
@@ -146,7 +147,7 @@ class MyDataModule(pl.LightningDataModule):
 
     def train_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.datasets["train"],
+            self.datasets["train"][self.task_ind],
             shuffle=self.shuffle_train,
             batch_size=self.batch_size.train,
             num_workers=self.num_workers.train,
@@ -156,7 +157,7 @@ class MyDataModule(pl.LightningDataModule):
 
     def val_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.datasets["val"],
+            self.datasets["val"][self.task_ind],
             shuffle=False,
             batch_size=self.batch_size.val,
             num_workers=self.num_workers.val,
@@ -166,7 +167,7 @@ class MyDataModule(pl.LightningDataModule):
 
     def test_dataloader(self) -> DataLoader:
         return DataLoader(
-            self.datasets["test"],
+            self.datasets["test"][self.task_ind],
             shuffle=False,
             batch_size=self.batch_size.test,
             num_workers=self.num_workers.test,

@@ -8,8 +8,8 @@ core:
 
 defaults:
   - hydra: default
-  - nn: same_classes_disj_samples
-  - train: same_classes_disj_samples
+  - nn: totally_disjoint
+  - train: totally_disjoint
   - _self_ # as last argument to allow the override of parameters via this main config
 #    Decomment this parameter to get parallel job running
 #  - hydra/launcher: joblib
