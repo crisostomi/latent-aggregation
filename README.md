@@ -31,7 +31,6 @@ Run the tests:
 
 ```bash
 pre-commit run --all-files
-pytest -v
 ```
 
 
