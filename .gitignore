@@ -228,5 +228,4 @@ multirun/
 results/
 exclude_rsync.txt
 .vscode/
-shell_scripts/
 notebooks/lightning_logs/
