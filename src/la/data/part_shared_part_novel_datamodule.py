@@ -59,6 +59,6 @@ class PartSharedPartNovelDatamodule(MyDataModule):
             )
 
             self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y"])
-            self.datasets[mode] = self.data[f"task_{self.task_ind}_{mode}"]
+            self.datasets[mode][self.task_ind] = self.data[f"task_{self.task_ind}_{mode}"]
 
         self.seen_tasks.add(self.task_ind)
