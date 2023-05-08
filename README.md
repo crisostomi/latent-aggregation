@@ -50,3 +50,12 @@ Re-install the project in edit mode:
 ```bash
 pip install -e .[dev]
 ```
+
+# Experiment flow
+
+Each experiment `exp_name` has three scripts:
+- `prepare_data_${exp_name}.py` divides the data in tasks according to what the experiment expects;
+- `run_${exp_name}.py` trains the task-specific models and uses them to embed the data for each task;
+- `analyze_${exp_name}.py` obtains the results for the experiment.
+
+Each script has a corresponding conf file in `conf/` with the same name.
