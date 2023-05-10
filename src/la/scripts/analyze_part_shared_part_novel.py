@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import random
 from functools import partial
 
@@ -54,6 +55,8 @@ def run(cfg: DictConfig) -> str:
         dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
     }
 
+    check_runs_exist(cfg.configurations)
+
     for single_cfg in cfg.configurations:
         cka_results, class_results = single_configuration_experiment(cfg, single_cfg)
 
@@ -70,6 +73,21 @@ def run(cfg: DictConfig) -> str:
 
     with open(cfg.class_results_path, "w+") as f:
         json.dump(all_class_results, f)
+
+
+def check_runs_exist(configurations):
+    for single_cfg in configurations:
+
+        dataset_name, num_shared_classes, num_novel_classes, model_name = (
+            single_cfg.dataset_name,
+            single_cfg.num_shared_classes,
+            single_cfg.num_novel_classes,
+            single_cfg.model_name,
+        )
+
+        dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/part_shared_part_novel/S{num_shared_classes}_N{num_novel_classes}_{model_name}"
+
+        assert os.path.exists(dataset_path), f"Path {dataset_path} does not exist."
 
 
 def single_configuration_experiment(global_cfg, single_cfg):

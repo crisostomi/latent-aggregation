@@ -5,6 +5,7 @@ core:
   version: 0.0.1
   tags:
     - dev
+    - same_classes_disj_samples
 
 defaults:
   - hydra: default
