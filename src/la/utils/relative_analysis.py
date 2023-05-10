@@ -22,7 +22,7 @@ pylogger = logging.getLogger(__name__)
 
 
 def compare_merged_original_qualitative(
-    original_dataset, merged_dataset, has_coarse_label, plots_path: Path, prefix, suffix
+    original_dataset, merged_dataset, has_coarse_label, plots_path: Path, prefix="", suffix=""
 ):
     pylogger.info("Running the qualitative analysis")
 
