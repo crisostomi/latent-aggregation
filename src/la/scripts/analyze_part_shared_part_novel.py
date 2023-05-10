@@ -182,9 +182,10 @@ def single_configuration_experiment(global_cfg, single_cfg):
     merged_dataset_shared = merged_dataset.filter(lambda row: row["y"].item() in shared_classes)
     original_dataset_shared = original_dataset.filter(lambda row: row["y"].item() in shared_classes)
 
-    prefix = f"S{num_shared_classes}_N{num_novel_classes}"
+    plots_path = Path(global_cfg.plots_path) / dataset_name / model_name / f"S{num_shared_classes}_N{num_novel_classes}"
+    plots_path.mkdir(parents=True, exist_ok=True)
     compare_merged_original_qualitative(
-        original_dataset, merged_dataset, has_coarse_label, global_cfg.plots_path, prefix, suffix="all_classes"
+        original_dataset, merged_dataset, has_coarse_label, plots_path, suffix="all_classes"
     )
 
     compare_merged_original_qualitative(
@@ -192,7 +193,6 @@ def single_configuration_experiment(global_cfg, single_cfg):
         merged_dataset_nonshared,
         has_coarse_label,
         global_cfg.plots_path,
-        prefix,
         suffix="nonshared_classes",
     )
 
@@ -201,7 +201,6 @@ def single_configuration_experiment(global_cfg, single_cfg):
         merged_dataset_shared,
         has_coarse_label,
         global_cfg.plots_path,
-        prefix,
         suffix="shared_classes",
     )
 
