@@ -167,5 +167,7 @@ def build_callbacks(cfg: ListConfig, *args: Callback) -> List[Callback]:
 
 
 def save_dict_to_file(content, path):
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+
     with open(path, "w+") as f:
         json.dump(content, f)
