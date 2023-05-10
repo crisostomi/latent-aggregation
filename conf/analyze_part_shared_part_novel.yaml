@@ -1,7 +1,9 @@
 seed_index: 0
 deterministic: False
-cka_results_path: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel/cka_analysis.json
-class_results_path: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel/class_analysis.json
+results_path: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel
+cka_results_path: ${results_path}/cka_analysis.json
+class_results_path: ${results_path}/class_analysis.json
+plots_path: ${results_path}/plots
 
 has_coarse_label:
   cifar100: True
@@ -73,12 +75,12 @@ configurations:
   #   num_shared_classes: 50
   #   num_novel_classes: 25
 
-  - dataset_name: tiny_imagenet
-    model_name: from_scratch_cnn
-    num_shared_classes: 100
-    num_novel_classes: 20
+  # - dataset_name: tiny_imagenet
+  #   model_name: from_scratch_cnn
+  #   num_shared_classes: 100
+  #   num_novel_classes: 20
 
-  - dataset_name: tiny_imagenet
-    model_name: from_scratch_cnn
-    num_shared_classes: 50
-    num_novel_classes: 25
+  # - dataset_name: tiny_imagenet
+  #   model_name: from_scratch_cnn
+  #   num_shared_classes: 50
+  #   num_novel_classes: 25

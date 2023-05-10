@@ -26,6 +26,16 @@ from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier
 from la.utils.utils import MyDatasetDict, add_tensor_column
 
+
+from la.utils.relative_analysis import (
+    plot_space_grid,
+    plot_pairwise_dist,
+    plot_self_dist,
+    self_sim_comparison,
+    Reduction,
+    reduce,
+)
+
 plt.style.use("dark_background")
 
 
@@ -171,56 +181,81 @@ def single_configuration_experiment(global_cfg, single_cfg):
     merged_dataset_shared = merged_dataset.filter(lambda row: row["y"].item() in shared_classes)
     original_dataset_shared = original_dataset.filter(lambda row: row["y"].item() in shared_classes)
 
-    # CKA analysis
-    cka = CKA(mode="linear", device="cuda")
-
-    cka_rel_abs = cka(merged_dataset["relative_embeddings"], merged_dataset["embedding"])
-
-    cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
-
-    cka_nonshared = cka(
-        merged_dataset_nonshared["relative_embeddings"],
-        original_dataset_nonshared["relative_embeddings"],
+    prefix = f"S{num_shared_classes}_N{num_novel_classes}"
+    qualitative_analysis(
+        original_dataset, merged_dataset, has_coarse_label, global_cfg.plots_path, prefix, suffix="all_classes"
     )
 
-    cka_shared = cka(
-        merged_dataset_shared["relative_embeddings"],
-        original_dataset_shared["relative_embeddings"],
+    qualitative_analysis(
+        original_dataset_nonshared,
+        merged_dataset_nonshared,
+        has_coarse_label,
+        global_cfg.plots_path,
+        prefix,
+        suffix="nonshared_classes",
     )
 
-    cka_results = {
-        "cka_rel_abs": cka_rel_abs.detach().item(),
-        "cka_tot": cka_tot.detach().item(),
-        "cka_shared": cka_shared.detach().item(),
-        "cka_non_shared": cka_nonshared.detach().item(),
-    }
-
-    # classification analysis
-
-    class_exp = partial(
-        run_classification_experiment,
-        shared_classes,
-        non_shared_classes,
-        num_total_classes,
-        global_cfg,
-        num_anchors,
+    qualitative_analysis(
+        original_dataset_shared,
+        merged_dataset_shared,
+        has_coarse_label,
+        global_cfg.plots_path,
+        prefix,
+        suffix="shared_classes",
     )
 
-    class_results_original_abs = class_exp(original_dataset, use_relatives=False)
+    # # CKA analysis
+    # cka = CKA(mode="linear", device="cuda")
 
-    class_results_original_rel = class_exp(original_dataset, use_relatives=True)
+    # cka_rel_abs = cka(merged_dataset["relative_embeddings"], merged_dataset["embedding"])
 
-    class_results_merged = class_exp(merged_dataset, use_relatives=True)
+    # cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
 
-    class_results = {
-        "original_abs": class_results_original_abs,
-        "original_rel": class_results_original_rel,
-        "merged": class_results_merged,
-    }
+    # cka_nonshared = cka(
+    #     merged_dataset_nonshared["relative_embeddings"],
+    #     original_dataset_nonshared["relative_embeddings"],
+    # )
 
-    pylogger.info(class_results_original_abs)
-    pylogger.info(class_results_original_rel)
-    pylogger.info(class_results_merged)
+    # cka_shared = cka(
+    #     merged_dataset_shared["relative_embeddings"],
+    #     original_dataset_shared["relative_embeddings"],
+    # )
+
+    # cka_results = {
+    #     "cka_rel_abs": cka_rel_abs.detach().item(),
+    #     "cka_tot": cka_tot.detach().item(),
+    #     "cka_shared": cka_shared.detach().item(),
+    #     "cka_non_shared": cka_nonshared.detach().item(),
+    # }
+
+    # # classification analysis
+
+    # class_exp = partial(
+    #     run_classification_experiment,
+    #     shared_classes,
+    #     non_shared_classes,
+    #     num_total_classes,
+    #     global_cfg,
+    #     num_anchors,
+    # )
+
+    # class_results_original_abs = class_exp(original_dataset, use_relatives=False)
+
+    # class_results_original_rel = class_exp(original_dataset, use_relatives=True)
+
+    # class_results_merged = class_exp(merged_dataset, use_relatives=True)
+
+    # class_results = {
+    #     "original_abs": class_results_original_abs,
+    #     "original_rel": class_results_original_rel,
+    #     "merged": class_results_merged,
+    # }
+
+    # pylogger.info(class_results_original_abs)
+    # pylogger.info(class_results_original_rel)
+    # pylogger.info(class_results_merged)
+
+    cka_results, class_results = None, None
 
     return cka_results, class_results
 
@@ -502,6 +537,56 @@ def run_classification_experiment(
     }
 
     return results
+
+
+def qualitative_analysis(original_dataset, merged_dataset, has_coarse_label, plots_path, prefix, suffix):
+
+    merged_space = merged_dataset["relative_embeddings"]
+    original_space = original_dataset["relative_embeddings"]
+
+    original_space_y = original_dataset["y"]
+
+    subsample_dim: int = 1000
+    subsample_indices = random.sample(range(0, original_space.shape[0]), subsample_dim)
+
+    subsample_original = original_space[subsample_indices]
+    subsample_merged = merged_space[subsample_indices]
+    subsample_labels = original_space_y[subsample_indices]
+
+    sort_indices: torch.Tensor = subsample_labels.sort().indices
+
+    subsample_original_sorted: torch.Tensor = subsample_original[sort_indices]
+    subsample_merged_sorted: torch.Tensor = subsample_merged[sort_indices]
+    subsample_labels_sorted: torch.Tensor = subsample_labels[sort_indices]
+
+    fig = plot_pairwise_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
+    fig.savefig(os.path.join(plots_path, f"{prefix}_pairwise_dist_{suffix}.png"))
+
+    fig = self_sim_comparison(space1=subsample_original_sorted, space2=subsample_merged_sorted, normalize=True)
+    fig.savefig(os.path.join(plots_path, f"{prefix}_self_sim_comparison_{suffix}.png"))
+
+    fig = plot_self_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
+    fig.savefig(os.path.join(plots_path, f"{prefix}_self_dist_{suffix}.png"))
+
+    x_header = [reduction.upper() for reduction in Reduction]
+    y_header = ["Relative Space 1", "Relative Space 2"]
+
+    spaces = [
+        [
+            *reduce(space1=subsample_original_sorted, space2=subsample_merged_sorted, reduction=reduction),
+        ]
+        for reduction in Reduction
+    ]
+
+    fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
+    fig.savefig(os.path.join(plots_path, f"{prefix}_space_grid_{suffix}.png"))
+
+    if has_coarse_label:
+        original_space_coarse_labels = original_dataset["coarse_label"]
+        subsample_coarse_labels = original_space_coarse_labels[subsample_indices]
+        subsample_coarse_labels_sorted: torch.Tensor = subsample_coarse_labels[sort_indices]
+        fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
+        fig.savefig(os.path.join(plots_path, f"{prefix}_space_grid_coarse_{suffix}.png"))
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_part_shared_part_novel")
