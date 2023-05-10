@@ -4,9 +4,12 @@ num_anchors: 256
 
 
 tag: ""
-cka_results_path: ${oc.env:PROJECT_ROOT}/results/totally_disjoint/cka_analysis_A${num_anchors}${tag}.json
-class_results_path: ${oc.env:PROJECT_ROOT}/results/totally_disjoint/class_analysis_A${num_anchors}${tag}.json
-knn_results_path: ${oc.env:PROJECT_ROOT}/results/totally_disjoint/knn_analysis_A${num_anchors}${tag}.json
+results_path: ${oc.env:PROJECT_ROOT}/results/totally_disjoint
+
+cka_results_path: ${results_path}/cka_analysis_A${num_anchors}${tag}.json
+class_results_path: ${results_path}/class_analysis_A${num_anchors}${tag}.json
+knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
+plots_path: ${results_path}/plots
 
 has_coarse_label:
   cifar100: True
