@@ -1,5 +1,6 @@
 import json
 import logging
+import os
 import random
 from functools import partial
 
@@ -38,6 +39,8 @@ def run(cfg: DictConfig) -> str:
     """
     seed_index_everything(cfg)
 
+    check_runs_exist(cfg.configurations)
+
     all_cka_results = {
         dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
     }
@@ -62,6 +65,18 @@ def run(cfg: DictConfig) -> str:
     save_dict_to_file(path=cfg.knn_results_path, content=all_knn_results)
 
 
+def check_runs_exist(configurations):
+    for single_cfg in configurations:
+        dataset_name, model_name = (
+            single_cfg.dataset_name,
+            single_cfg.model_name,
+        )
+
+        dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/same_classes_disj_samples/partition-1_{model_name}"
+
+        assert os.path.exists(dataset_path), f"Path {dataset_path} does not exist."
+
+
 def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConfig):
     """
     Run a single experiment with the given configurations.
@@ -76,7 +91,7 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     pylogger.info(f"Running experiment on {dataset_name} embedded with {model_name}.")
 
-    dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/totally_disjoint/partition-1_{model_name}"
+    dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/same_classes_disj_samples/partition-1_{model_name}"
 
     data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=dataset_path)
 
