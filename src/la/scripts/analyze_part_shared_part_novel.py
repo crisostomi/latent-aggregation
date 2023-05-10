@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 import random
 from functools import partial
 
@@ -28,6 +29,7 @@ from la.utils.utils import MyDatasetDict, add_tensor_column
 
 
 from la.utils.relative_analysis import (
+    compare_merged_original_qualitative,
     plot_space_grid,
     plot_pairwise_dist,
     plot_self_dist,
@@ -87,7 +89,6 @@ def run(cfg: DictConfig) -> str:
 
 def check_runs_exist(configurations):
     for single_cfg in configurations:
-
         dataset_name, num_shared_classes, num_novel_classes, model_name = (
             single_cfg.dataset_name,
             single_cfg.num_shared_classes,
@@ -182,11 +183,11 @@ def single_configuration_experiment(global_cfg, single_cfg):
     original_dataset_shared = original_dataset.filter(lambda row: row["y"].item() in shared_classes)
 
     prefix = f"S{num_shared_classes}_N{num_novel_classes}"
-    qualitative_analysis(
+    compare_merged_original_qualitative(
         original_dataset, merged_dataset, has_coarse_label, global_cfg.plots_path, prefix, suffix="all_classes"
     )
 
-    qualitative_analysis(
+    compare_merged_original_qualitative(
         original_dataset_nonshared,
         merged_dataset_nonshared,
         has_coarse_label,
@@ -195,7 +196,7 @@ def single_configuration_experiment(global_cfg, single_cfg):
         suffix="nonshared_classes",
     )
 
-    qualitative_analysis(
+    compare_merged_original_qualitative(
         original_dataset_shared,
         merged_dataset_shared,
         has_coarse_label,
@@ -537,56 +538,6 @@ def run_classification_experiment(
     }
 
     return results
-
-
-def qualitative_analysis(original_dataset, merged_dataset, has_coarse_label, plots_path, prefix, suffix):
-
-    merged_space = merged_dataset["relative_embeddings"]
-    original_space = original_dataset["relative_embeddings"]
-
-    original_space_y = original_dataset["y"]
-
-    subsample_dim: int = 1000
-    subsample_indices = random.sample(range(0, original_space.shape[0]), subsample_dim)
-
-    subsample_original = original_space[subsample_indices]
-    subsample_merged = merged_space[subsample_indices]
-    subsample_labels = original_space_y[subsample_indices]
-
-    sort_indices: torch.Tensor = subsample_labels.sort().indices
-
-    subsample_original_sorted: torch.Tensor = subsample_original[sort_indices]
-    subsample_merged_sorted: torch.Tensor = subsample_merged[sort_indices]
-    subsample_labels_sorted: torch.Tensor = subsample_labels[sort_indices]
-
-    fig = plot_pairwise_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(os.path.join(plots_path, f"{prefix}_pairwise_dist_{suffix}.png"))
-
-    fig = self_sim_comparison(space1=subsample_original_sorted, space2=subsample_merged_sorted, normalize=True)
-    fig.savefig(os.path.join(plots_path, f"{prefix}_self_sim_comparison_{suffix}.png"))
-
-    fig = plot_self_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(os.path.join(plots_path, f"{prefix}_self_dist_{suffix}.png"))
-
-    x_header = [reduction.upper() for reduction in Reduction]
-    y_header = ["Relative Space 1", "Relative Space 2"]
-
-    spaces = [
-        [
-            *reduce(space1=subsample_original_sorted, space2=subsample_merged_sorted, reduction=reduction),
-        ]
-        for reduction in Reduction
-    ]
-
-    fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
-    fig.savefig(os.path.join(plots_path, f"{prefix}_space_grid_{suffix}.png"))
-
-    if has_coarse_label:
-        original_space_coarse_labels = original_dataset["coarse_label"]
-        subsample_coarse_labels = original_space_coarse_labels[subsample_indices]
-        subsample_coarse_labels_sorted: torch.Tensor = subsample_coarse_labels[sort_indices]
-        fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
-        fig.savefig(os.path.join(plots_path, f"{prefix}_space_grid_coarse_{suffix}.png"))
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_part_shared_part_novel")

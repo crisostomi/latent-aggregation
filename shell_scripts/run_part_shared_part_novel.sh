@@ -10,3 +10,4 @@ python src/la/scripts/run_part_shared_part_novel.py "nn.dataset_name=cifar100" "
 python src/la/scripts/run_part_shared_part_novel.py "nn.dataset_name=cifar100" "nn/model=efficient_net" "nn.num_shared_classes=20" "nn.num_novel_classes_per_task=10"
 python src/la/scripts/run_part_shared_part_novel.py "nn.dataset_name=tiny_imagenet" "nn/model=efficient_net" "nn.num_shared_classes=50" "nn.num_novel_classes_per_task=25"
 python src/la/scripts/run_part_shared_part_novel.py "nn.dataset_name=tiny_imagenet" "nn/model=efficient_net" "nn.num_shared_classes=100" "nn.num_novel_classes_per_task=20"
+python src/la/scripts/analyze_part_shared_part_novel.py

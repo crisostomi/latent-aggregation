@@ -5,6 +5,8 @@ cka_results_path: ${results_path}/cka_analysis.json
 class_results_path: ${results_path}/class_analysis.json
 plots_path: ${results_path}/plots
 
+run_qualitative_analysis: true
+
 has_coarse_label:
   cifar100: True
   tiny_imagenet: False
@@ -55,15 +57,15 @@ configurations:
     num_shared_classes: 60
     num_novel_classes: 10
 
-  - dataset_name: cifar100
-    model_name: from_scratch_cnn
-    num_shared_classes: 40
-    num_novel_classes: 10
+  # - dataset_name: cifar100
+  #   model_name: from_scratch_cnn
+  #   num_shared_classes: 40
+  #   num_novel_classes: 10
 
-  - dataset_name: cifar100
-    model_name: from_scratch_cnn
-    num_shared_classes: 20
-    num_novel_classes: 10
+  # - dataset_name: cifar100
+  #   model_name: from_scratch_cnn
+  #   num_shared_classes: 20
+  #   num_novel_classes: 10
 
   # - dataset_name: tiny_imagenet
   #   model_name: efficient_net
