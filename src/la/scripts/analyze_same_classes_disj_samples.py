@@ -1,6 +1,7 @@
 import json
 import logging
 import os
+from pathlib import Path
 import random
 from functools import partial
 
@@ -25,6 +26,7 @@ import torch.nn as nn
 import la  # noqa
 from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier
+from la.utils.relative_analysis import compare_merged_original_qualitative
 from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
 
@@ -89,6 +91,8 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         single_cfg.model_name,
     )
 
+    has_coarse_label = global_cfg.has_coarse_label[dataset_name]
+
     pylogger.info(f"Running experiment on {dataset_name} embedded with {model_name}.")
 
     dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/same_classes_disj_samples/partition-1_{model_name}"
@@ -99,6 +103,9 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     num_tasks = data["metadata"]["num_tasks"]
 
     tensor_columns = ["embedding", "y", "id"]
+    if has_coarse_label:
+        tensor_columns.append("coarse_label")
+
     set_torch_format(data, num_tasks, modes=["train", "test", "anchors"], tensor_columns=tensor_columns)
 
     num_anchors = len(data["task_0_anchors"])
@@ -156,6 +163,13 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     # assert torch.all(torch.eq(merged_dataset_train["id"], original_dataset_train["id"]))
 
     assert torch.all(torch.eq(merged_dataset_test["id"], original_dataset_test["id"]))
+
+    # qualitative comparison absolute -- merged
+    plots_path = Path(global_cfg.plots_path) / dataset_name / model_name
+
+    compare_merged_original_qualitative(
+        original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, prefix="", suffix="all_classes"
+    )
 
     # CKA analysis
 

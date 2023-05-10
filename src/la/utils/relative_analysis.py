@@ -21,10 +21,11 @@ CMAP = "jet"
 pylogger = logging.getLogger(__name__)
 
 
-def compare_merged_original_qualitative(original_dataset, merged_dataset, has_coarse_label, plots_path, prefix, suffix):
+def compare_merged_original_qualitative(
+    original_dataset, merged_dataset, has_coarse_label, plots_path: Path, prefix, suffix
+):
     pylogger.info("Running the qualitative analysis")
 
-    plots_path = Path(plots_path)
     plots_path.mkdir(parents=True, exist_ok=True)
 
     merged_space = merged_dataset["relative_embeddings"]
@@ -46,7 +47,7 @@ def compare_merged_original_qualitative(original_dataset, merged_dataset, has_co
     subsample_labels_sorted: torch.Tensor = subsample_labels[sort_indices]
 
     fig = plot_pairwise_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(plots_path / f"{prefix}_pairwise_dist_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}pairwise_dist_{suffix}.png")
 
     self_sim_comp = self_sim_comparison(
         space1=subsample_original_sorted, space2=subsample_merged_sorted, normalize=True
@@ -54,27 +55,29 @@ def compare_merged_original_qualitative(original_dataset, merged_dataset, has_co
     pylogger.info(self_sim_comp)
 
     fig = plot_self_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(plots_path / f"{prefix}_self_dist_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}self_dist_{suffix}.png")
 
-    x_header = [reduction.upper() for reduction in Reduction]
+    reductions = [Reduction.INDEPENDENT_PCA, Reduction.TSNE]
+
+    x_header = [reduction.upper() for reduction in reductions]
     y_header = ["Relative Space 1", "Relative Space 2"]
 
     spaces = [
         [
             *reduce(space1=subsample_original_sorted, space2=subsample_merged_sorted, reduction=reduction),
         ]
-        for reduction in Reduction
+        for reduction in reductions
     ]
 
     fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
-    fig.savefig(plots_path / f"{prefix}_space_grid_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}space_grid_{suffix}.png")
 
     if has_coarse_label:
         original_space_coarse_labels = original_dataset["coarse_label"]
         subsample_coarse_labels = original_space_coarse_labels[subsample_indices]
         subsample_coarse_labels_sorted: torch.Tensor = subsample_coarse_labels[sort_indices]
         fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
-        fig.savefig(plots_path / f"{prefix}_space_grid_coarse_{suffix}.png")
+        fig.savefig(plots_path / f"{prefix}space_grid_coarse_{suffix}.png")
 
 
 class DistMethod(StrEnum):
@@ -181,7 +184,7 @@ def plot_pairwise_dist(space1: torch.Tensor, space2: torch.Tensor, prefix: str):
     return fig
 
 
-def plot_self_dist(space1: torch.Tensor, space2: torch.Tensor, prefix: str):
+def plot_self_dist_varying_distances(space1: torch.Tensor, space2: torch.Tensor, prefix: str):
     # S[i, j] = distance between sample_i from space 1 and sample_j from space 2
     # s[j, i] = distance between sample_j from space 1 and sample_i from space 2
     fig, axs = plt.subplots(nrows=2, ncols=len(DistMethod), figsize=(20, 11), sharey=False)
@@ -201,6 +204,22 @@ def plot_self_dist(space1: torch.Tensor, space2: torch.Tensor, prefix: str):
         ax.set_title(f"L2({prefix}) self-similarities ({dist_method})")
         img = ax.imshow(dists, cmap=CMAP)
         plt.colorbar(img, ax=ax)
+
+    plt.close()
+
+    return fig
+
+
+def plot_self_dist(space1: torch.Tensor, space2: torch.Tensor, prefix: str):
+    # S[i, j] = distance between sample_i from space 1 and sample_j from space 2
+    # s[j, i] = distance between sample_j from space 1 and sample_i from space 2
+
+    fig, ax = plt.subplots(nrows=1, ncols=1, figsize=(12, 12), sharey=False)
+
+    dists = all_dist(space1=space1, space2=space2, method=DistMethod.COSINE)
+    ax.set_title(f"self-similarities")
+    img = ax.imshow(dists, cmap=CMAP)
+    plt.colorbar(img, ax=ax)
 
     plt.close()
 
