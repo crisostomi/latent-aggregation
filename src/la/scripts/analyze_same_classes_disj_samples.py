@@ -167,9 +167,7 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     # qualitative comparison absolute -- merged
     plots_path = Path(global_cfg.plots_path) / dataset_name / model_name
 
-    compare_merged_original_qualitative(
-        original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, prefix="", suffix="all_classes"
-    )
+    compare_merged_original_qualitative(original_dataset_test, merged_dataset_test, has_coarse_label, plots_path)
 
     # CKA analysis
 

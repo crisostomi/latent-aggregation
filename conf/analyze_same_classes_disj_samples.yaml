@@ -4,9 +4,11 @@ num_anchors: 256
 
 
 tag: ""
-cka_results_path: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples/cka_analysis_A${num_anchors}${tag}.json
-class_results_path: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples/class_analysis_A${num_anchors}${tag}.json
-knn_results_path: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples/knn_analysis_A${num_anchors}${tag}.json
+results_path: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples
+cka_results_path: ${results_path}/cka_analysis_A${num_anchors}${tag}.json
+class_results_path: ${results_path}/class_analysis_A${num_anchors}${tag}.json
+knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
+plots_path: ${results_path}/plots
 
 has_coarse_label:
   cifar100: True
@@ -41,14 +43,14 @@ configurations:
   - dataset_name: cifar100
     model_name: shake_resnet
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: from_scratch_cnn
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: efficient_net
+  - dataset_name: tiny_imagenet
+    model_name: efficient_net
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: resnet
+  - dataset_name: tiny_imagenet
+    model_name: resnet
 
   # - dataset_name: tiny_imagenet
   #   model_name: shake_resnet

@@ -9,6 +9,8 @@ import hydra
 import matplotlib.pyplot as plt
 import omegaconf
 import pytorch_lightning
+from sklearn import metrics
+from sklearn.cluster import KMeans
 import torch
 import torchmetrics
 from datasets import Dataset, concatenate_datasets
@@ -25,7 +27,7 @@ from torch.nn import functional as F
 import la  # noqa
 from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier
-from la.utils.utils import MyDatasetDict, add_tensor_column
+from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
 
 
 from la.utils.relative_analysis import (
@@ -38,7 +40,7 @@ from la.utils.relative_analysis import (
     reduce,
 )
 
-plt.style.use("dark_background")
+# plt.style.use("dark_background")
 
 
 pylogger = logging.getLogger(__name__)
@@ -66,25 +68,38 @@ def run(cfg: DictConfig) -> str:
     all_class_results = {
         dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
     }
+    all_clustering_results = {
+        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
+    }
 
     check_runs_exist(cfg.configurations)
 
     for single_cfg in cfg.configurations:
-        cka_results, class_results = single_configuration_experiment(cfg, single_cfg)
+        cka_results, class_results, clustering_results = single_configuration_experiment(cfg, single_cfg)
 
-        all_cka_results[single_cfg.dataset_name][single_cfg.model_name][
-            f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
-        ] = cka_results
+        if cka_results:
+            all_cka_results[single_cfg.dataset_name][single_cfg.model_name][
+                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
+            ] = cka_results
 
-        all_class_results[single_cfg.dataset_name][single_cfg.model_name][
-            f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
-        ] = class_results
+        if class_results:
+            all_class_results[single_cfg.dataset_name][single_cfg.model_name][
+                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
+            ] = class_results
 
-    with open(cfg.cka_results_path, "w+") as f:
-        json.dump(all_cka_results, f)
+        if clustering_results:
+            all_clustering_results[single_cfg.dataset_name][single_cfg.model_name][
+                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
+            ] = clustering_results
 
-    with open(cfg.class_results_path, "w+") as f:
-        json.dump(all_class_results, f)
+    if cfg.run_cka_analysis:
+        save_dict_to_file(path=cfg.cka_results_path, content=all_cka_results)
+
+    if cfg.run_classification_analysis:
+        save_dict_to_file(path=cfg.class_results_path, content=all_class_results)
+
+    if cfg.run_clustering_analysis:
+        save_dict_to_file(path=cfg.clustering_results_path, content=all_clustering_results)
 
 
 def check_runs_exist(configurations):
@@ -164,7 +179,6 @@ def single_configuration_experiment(global_cfg, single_cfg):
         merged_datasets[mode] = merge_subspaces(shared_samples[mode], novel_samples[mode])
 
     # Analysis
-
     mode = "test"  # train or test
     merged_dataset = merged_datasets[mode].sort("id")
     original_dataset = data[f"task_0_{mode}"].sort("id")
@@ -182,82 +196,108 @@ def single_configuration_experiment(global_cfg, single_cfg):
     merged_dataset_shared = merged_dataset.filter(lambda row: row["y"].item() in shared_classes)
     original_dataset_shared = original_dataset.filter(lambda row: row["y"].item() in shared_classes)
 
-    plots_path = Path(global_cfg.plots_path) / dataset_name / model_name / f"S{num_shared_classes}_N{num_novel_classes}"
-    plots_path.mkdir(parents=True, exist_ok=True)
-    compare_merged_original_qualitative(
-        original_dataset, merged_dataset, has_coarse_label, plots_path, suffix="all_classes"
-    )
+    if global_cfg.run_qualitative_analysis:
+        plots_path = (
+            Path(global_cfg.plots_path) / dataset_name / model_name / f"S{num_shared_classes}_N{num_novel_classes}"
+        )
+        plots_path.mkdir(parents=True, exist_ok=True)
 
-    compare_merged_original_qualitative(
-        original_dataset_nonshared,
-        merged_dataset_nonshared,
-        has_coarse_label,
-        global_cfg.plots_path,
-        suffix="nonshared_classes",
-    )
+        compare_merged_original_qualitative(
+            original_dataset, merged_dataset, has_coarse_label, plots_path, suffix="_all_classes"
+        )
 
-    compare_merged_original_qualitative(
-        original_dataset_shared,
-        merged_dataset_shared,
-        has_coarse_label,
-        global_cfg.plots_path,
-        suffix="shared_classes",
-    )
+        compare_merged_original_qualitative(
+            original_dataset_nonshared,
+            merged_dataset_nonshared,
+            has_coarse_label,
+            plots_path,
+            suffix="_nonshared_classes",
+        )
 
-    # # CKA analysis
-    # cka = CKA(mode="linear", device="cuda")
+        compare_merged_original_qualitative(
+            original_dataset_shared,
+            merged_dataset_shared,
+            has_coarse_label,
+            plots_path,
+            suffix="_shared_classes",
+        )
 
-    # cka_rel_abs = cka(merged_dataset["relative_embeddings"], merged_dataset["embedding"])
+    cka_results, class_results, clustering_results = None, None, None
 
-    # cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
+    if global_cfg.run_clustering_analysis:
+        clustering_results_original = compute_clustering_metrics(
+            original_dataset["embedding"], space_y=original_dataset["y"], num_classes=num_total_classes
+        )
 
-    # cka_nonshared = cka(
-    #     merged_dataset_nonshared["relative_embeddings"],
-    #     original_dataset_nonshared["relative_embeddings"],
-    # )
+        clustering_results_rel = compute_clustering_metrics(
+            original_dataset["relative_embeddings"], space_y=original_dataset["y"], num_classes=num_total_classes
+        )
 
-    # cka_shared = cka(
-    #     merged_dataset_shared["relative_embeddings"],
-    #     original_dataset_shared["relative_embeddings"],
-    # )
+        clustering_results_merged = compute_clustering_metrics(
+            merged_dataset["relative_embeddings"], space_y=merged_dataset["y"], num_classes=num_total_classes
+        )
 
-    # cka_results = {
-    #     "cka_rel_abs": cka_rel_abs.detach().item(),
-    #     "cka_tot": cka_tot.detach().item(),
-    #     "cka_shared": cka_shared.detach().item(),
-    #     "cka_non_shared": cka_nonshared.detach().item(),
-    # }
+        clustering_results = {
+            "original_abs": clustering_results_original,
+            "original_rel": clustering_results_rel,
+            "merged": clustering_results_merged,
+        }
 
-    # # classification analysis
+        pylogger.info(clustering_results)
 
-    # class_exp = partial(
-    #     run_classification_experiment,
-    #     shared_classes,
-    #     non_shared_classes,
-    #     num_total_classes,
-    #     global_cfg,
-    #     num_anchors,
-    # )
+    if global_cfg.run_cka_analysis:
+        cka = CKA(mode="linear", device="cuda")
 
-    # class_results_original_abs = class_exp(original_dataset, use_relatives=False)
+        cka_rel_abs = cka(merged_dataset["relative_embeddings"], merged_dataset["embedding"])
 
-    # class_results_original_rel = class_exp(original_dataset, use_relatives=True)
+        cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
 
-    # class_results_merged = class_exp(merged_dataset, use_relatives=True)
+        cka_nonshared = cka(
+            merged_dataset_nonshared["relative_embeddings"],
+            original_dataset_nonshared["relative_embeddings"],
+        )
 
-    # class_results = {
-    #     "original_abs": class_results_original_abs,
-    #     "original_rel": class_results_original_rel,
-    #     "merged": class_results_merged,
-    # }
+        cka_shared = cka(
+            merged_dataset_shared["relative_embeddings"],
+            original_dataset_shared["relative_embeddings"],
+        )
 
-    # pylogger.info(class_results_original_abs)
-    # pylogger.info(class_results_original_rel)
-    # pylogger.info(class_results_merged)
+        cka_results = {
+            "cka_rel_abs": cka_rel_abs.detach().item(),
+            "cka_tot": cka_tot.detach().item(),
+            "cka_shared": cka_shared.detach().item(),
+            "cka_non_shared": cka_nonshared.detach().item(),
+        }
 
-    cka_results, class_results = None, None
+    if global_cfg.run_classification_analysis:
+        # construct a dataset that is just the concatenation of the absolute embeddings of the different tasks
+        jumble_dataset = concatenate_datasets([data[f"task_{i}_{mode}"] for i in range(1, num_tasks + 1)])
 
-    return cka_results, class_results
+        class_exp = partial(
+            run_classification_experiment,
+            shared_classes,
+            non_shared_classes,
+            num_total_classes,
+            global_cfg,
+            num_anchors,
+        )
+
+        class_results_original_abs = class_exp(original_dataset, use_relatives=False)
+
+        class_results_original_rel = class_exp(original_dataset, use_relatives=True)
+
+        class_results_jumble = class_exp(jumble_dataset, use_relatives=False)
+
+        class_results_merged = class_exp(merged_dataset, use_relatives=True)
+
+        class_results = {
+            "original_abs": class_results_original_abs,
+            "original_rel": class_results_original_rel,
+            "jumble_abs": class_results_jumble,
+            "merged": class_results_merged,
+        }
+
+    return cka_results, class_results, clustering_results
 
 
 def get_shared_samples_ids(data, num_tasks, shared_classes):
@@ -391,6 +431,25 @@ def merge_subspaces(shared_samples, novel_samples):
     merged_dataset = merged_dataset
 
     return merged_dataset
+
+
+def compute_clustering_metrics(space, space_y, num_classes):
+    """
+    Compute the clustering metrics for the dataset
+    """
+
+    kmeans = KMeans(n_clusters=num_classes, random_state=0).fit(space)
+
+    assignment = kmeans.labels_
+
+    clustering_metrics = {
+        "silhouette_score": metrics.silhouette_score(space, assignment, metric="euclidean").item(),
+        "completeness_score": metrics.completeness_score(labels_true=space_y, labels_pred=assignment).item(),
+        "homogeneity_score": metrics.homogeneity_score(labels_true=space_y, labels_pred=assignment).item(),
+        "mutual_info_score": metrics.mutual_info_score(labels_true=space_y, labels_pred=assignment).item(),
+    }
+
+    return clustering_metrics
 
 
 class Model(pytorch_lightning.LightningModule):

@@ -47,7 +47,7 @@ def compare_merged_original_qualitative(
     subsample_labels_sorted: torch.Tensor = subsample_labels[sort_indices]
 
     fig = plot_pairwise_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(plots_path / f"{prefix}pairwise_dist_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}pairwise_dist{suffix}.png")
 
     self_sim_comp = self_sim_comparison(
         space1=subsample_original_sorted, space2=subsample_merged_sorted, normalize=True
@@ -55,29 +55,39 @@ def compare_merged_original_qualitative(
     pylogger.info(self_sim_comp)
 
     fig = plot_self_dist(space1=subsample_original_sorted, space2=subsample_merged_sorted, prefix="Relative")
-    fig.savefig(plots_path / f"{prefix}self_dist_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}self_dist{suffix}.png")
 
-    reductions = [Reduction.INDEPENDENT_PCA, Reduction.TSNE]
-
-    x_header = [reduction.upper() for reduction in reductions]
-    y_header = ["Relative Space 1", "Relative Space 2"]
+    y_header = ["Original Space", "Aggregated Space"]
+    x_header = [reduction.upper() for reduction in Reduction]
 
     spaces = [
         [
             *reduce(space1=subsample_original_sorted, space2=subsample_merged_sorted, reduction=reduction),
         ]
-        for reduction in reductions
+        for reduction in Reduction
     ]
 
     fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
-    fig.savefig(plots_path / f"{prefix}space_grid_{suffix}.png")
+    fig.savefig(plots_path / f"{prefix}space_grid{suffix}.png")
 
     if has_coarse_label:
         original_space_coarse_labels = original_dataset["coarse_label"]
         subsample_coarse_labels = original_space_coarse_labels[subsample_indices]
         subsample_coarse_labels_sorted: torch.Tensor = subsample_coarse_labels[sort_indices]
         fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
-        fig.savefig(plots_path / f"{prefix}space_grid_coarse_{suffix}.png")
+        fig.savefig(plots_path / f"{prefix}space_grid_coarse{suffix}.png")
+
+    reductions = [Reduction.INDEPENDENT_PCA, Reduction.TSNE]
+    for reduction in reductions:
+        y_header = ["Original Space", "Aggregated Space"]
+        x_header = reduction.upper()
+
+        spaces = [
+            *reduce(space1=subsample_original_sorted, space2=subsample_merged_sorted, reduction=reduction),
+        ]
+
+        fig = plot_spaces(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
+        fig.savefig(plots_path / f"{prefix}{reduction.upper()}{suffix}.png")
 
 
 class DistMethod(StrEnum):
@@ -255,6 +265,39 @@ def plot_space_grid(
         space = spaces[i][j]
         assert space.shape[1] == 2
         axs[i, j].scatter(x=space[:, 0], y=space[:, 1], c=c, cmap=cmap)
+
+    plt.close()
+    return fig
+
+
+def plot_spaces(x_header: str, y_header: Sequence[str], spaces: Sequence[Sequence[np.ndarray]], c=None, cmap=CMAP):
+    """
+
+    Args:
+        x_header: A sequence of strings for the x-axis labels.
+        y_header: A sequence of strings for the y-axis labels.
+        spaces: A sequence of sequences of tensors containing the data to be plotted.
+        c: Optional. The colors of the plotted points.
+        cmap: The colormap to use for the plotted points.
+    Returns:
+        The figure object representing the complete plot.
+    """
+    n_rows = 1
+    n_cols = len(spaces)
+
+    fig, axs = plt.subplots(nrows=1, ncols=n_cols, figsize=(n_cols * 5, n_rows * 5))
+
+    axs[0].set_ylabel(x_header, rotation=90, size="xx-large")
+
+    for y, col in zip(y_header, axs):
+        col.set_title(y, size="xx-large")
+
+    for j in range(n_cols):
+        space = spaces[j]
+        assert space.shape[1] == 2
+        x = space[:, 0]
+        y = space[:, 1]
+        axs[j].scatter(x=x, y=y, c=c, cmap=cmap)
 
     plt.close()
     return fig

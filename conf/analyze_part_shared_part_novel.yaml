@@ -3,9 +3,13 @@ deterministic: False
 results_path: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel
 cka_results_path: ${results_path}/cka_analysis.json
 class_results_path: ${results_path}/class_analysis.json
+clustering_results_path: ${results_path}/clustering_analysis.json
 plots_path: ${results_path}/plots
 
-run_qualitative_analysis: true
+run_qualitative_analysis: True
+run_cka_analysis: True
+run_classification_analysis: True
+run_clustering_analysis: True
 
 has_coarse_label:
   cifar100: True
@@ -27,25 +31,25 @@ classifier_embed_dim: 256
 
 
 configurations:
-  # - dataset_name: cifar100
-  #   model_name: efficient_net
-  #   num_shared_classes: 80
-  #   num_novel_classes: 5
+  - dataset_name: cifar100
+    model_name: efficient_net
+    num_shared_classes: 80
+    num_novel_classes: 5
 
-  # - dataset_name: cifar100
-  #   model_name: efficient_net
-  #   num_shared_classes: 60
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: efficient_net
+    num_shared_classes: 60
+    num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: efficient_net
-  #   num_shared_classes: 40
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: efficient_net
+    num_shared_classes: 40
+    num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: efficient_net
-  #   num_shared_classes: 20
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: efficient_net
+    num_shared_classes: 20
+    num_novel_classes: 10
 
   - dataset_name: cifar100
     model_name: from_scratch_cnn
@@ -57,32 +61,32 @@ configurations:
     num_shared_classes: 60
     num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 40
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    num_shared_classes: 40
+    num_novel_classes: 10
 
-  # - dataset_name: cifar100
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 20
-  #   num_novel_classes: 10
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    num_shared_classes: 20
+    num_novel_classes: 10
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: efficient_net
-  #   num_shared_classes: 100
-  #   num_novel_classes: 20
+  - dataset_name: tiny_imagenet
+    model_name: efficient_net
+    num_shared_classes: 100
+    num_novel_classes: 20
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: efficient_net
-  #   num_shared_classes: 50
-  #   num_novel_classes: 25
+  - dataset_name: tiny_imagenet
+    model_name: efficient_net
+    num_shared_classes: 50
+    num_novel_classes: 25
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 100
-  #   num_novel_classes: 20
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
+    num_shared_classes: 100
+    num_novel_classes: 20
 
-  # - dataset_name: tiny_imagenet
-  #   model_name: from_scratch_cnn
-  #   num_shared_classes: 50
-  #   num_novel_classes: 25
+  - dataset_name: tiny_imagenet
+    model_name: from_scratch_cnn
+    num_shared_classes: 50
+    num_novel_classes: 25
