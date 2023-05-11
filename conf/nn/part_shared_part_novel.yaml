@@ -1,11 +1,18 @@
+# https://stackoverflow.com/questions/71356361/selecting-multiple-configs-from-a-config-group-in-hydra-without-using-an-explici
 defaults:
-  - model: vanilla_cnn  # vanilla_cnn, efficient_net
+  # - model: vanilla_cnn  # vanilla_cnn, efficient_net
+  - model@model.vanilla_cnn: vanilla_cnn
+  - model@model.efficient_net: efficient_net
+  - _self_
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
 num_shared_classes: 80
 num_novel_classes_per_task: 5
 data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/part_shared_part_novel/S${nn.num_shared_classes}_N${nn.num_novel_classes_per_task}
-output_path: ${nn.data_path}_${nn.model.name}
+# output_path: ${nn.data_path}_${nn.model.name}
+
+# length must be the same as num tasks + 0 (fake tast)
+multi_architectures: ['vanilla_cnn', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net']
 
 data:
   _target_: la.data.part_shared_part_novel_datamodule.PartSharedPartNovelDatamodule

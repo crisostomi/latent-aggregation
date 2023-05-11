@@ -108,7 +108,8 @@ def check_runs_exist(configurations):
             single_cfg.dataset_name,
             single_cfg.num_shared_classes,
             single_cfg.num_novel_classes,
-            single_cfg.model_name,
+            # single_cfg.model_name,
+            "_".join(single_cfg.model_name),
         )
 
         dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/part_shared_part_novel/S{num_shared_classes}_N{num_novel_classes}_{model_name}"
@@ -121,7 +122,8 @@ def single_configuration_experiment(global_cfg, single_cfg):
         single_cfg.dataset_name,
         single_cfg.num_shared_classes,
         single_cfg.num_novel_classes,
-        single_cfg.model_name,
+        # single_cfg.model_name,
+        "_".join(single_cfg.model_name),
     )
 
     has_coarse_label = global_cfg.has_coarse_label[dataset_name]
