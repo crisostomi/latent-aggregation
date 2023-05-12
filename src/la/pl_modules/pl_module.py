@@ -91,6 +91,7 @@ class MyLightningModule(pl.LightningModule):
                 "acc/val": self.val_accuracy,
             },
             on_epoch=True,
+            prog_bar=True,
         )
 
         return step_out
