@@ -1,0 +1,9 @@
+name: "mnist"
+ref: "mnist"
+train_split: train
+test_split: test
+label_key: label
+image_key: image
+num_classes: 10
+num_train_samples_per_class: 60_000
+num_test_samples_per_class: 10_000

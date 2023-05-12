@@ -1,13 +1,13 @@
 import json
 import logging
-import hydra
 from os import PathLike
 from pathlib import Path
-from typing import Optional, Union, Dict, List
-from omegaconf import ListConfig
+from typing import Dict, List, Optional, Union
 
-from datasets import DatasetDict, Dataset
-from pytorch_lightning.callbacks import ModelCheckpoint, Callback
+import hydra
+from datasets import Dataset, DatasetDict
+from omegaconf import ListConfig
+from pytorch_lightning.callbacks import Callback, ModelCheckpoint
 
 pylogger = logging.getLogger(__name__)
 
@@ -70,6 +70,10 @@ class MyDatasetDict(DatasetDict):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.data_keys = None
+
+    def shard(self, num_shards, index) -> "DatasetDict":
+        # DatasetDict is missing the shard method somehow ?
+        return DatasetDict({k: dataset.shard(num_shards=num_shards, index=index) for k, dataset in self.items()})
 
     def save_to_disk(
         self,
