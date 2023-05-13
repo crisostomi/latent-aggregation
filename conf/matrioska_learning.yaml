@@ -11,7 +11,7 @@ label_key: y
 
 defaults:
   - hydra: default
-  - dataset: mnist
+  - dataset: cifar100
   - nn@nn.model: model/vanilla_cnn
   - _self_ # as last argument to allow the override of parameters via this main config
 #    Decomment this parameter to get parallel job running
