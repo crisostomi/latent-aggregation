@@ -12,7 +12,7 @@ knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
 plots_path: ${results_path}/plots
 
 has_coarse_label:
-  cifar100: True
+  cifar100: False # TODO: change back
   tiny_imagenet: False
 
 dataset_names:
@@ -35,23 +35,23 @@ configurations:
   - dataset_name: cifar100
     model_name: from_scratch_cnn
 
-  - dataset_name: cifar100
-    model_name: efficient_net
+  # - dataset_name: cifar100
+  #   model_name: efficient_net
 
-  - dataset_name: cifar100
-    model_name: resnet
+  # - dataset_name: cifar100
+  #   model_name: resnet
 
-  - dataset_name: cifar100
-    model_name: shake_resnet
+  # - dataset_name: cifar100
+  #   model_name: shake_resnet
 
-  - dataset_name: tiny_imagenet
-    model_name: from_scratch_cnn
+  # - dataset_name: tiny_imagenet
+  #   model_name: from_scratch_cnn
 
-  - dataset_name: tiny_imagenet
-    model_name: efficient_net
+  # - dataset_name: tiny_imagenet
+  #   model_name: efficient_net
 
-  - dataset_name: tiny_imagenet
-    model_name: resnet
+  # - dataset_name: tiny_imagenet
+  #   model_name: resnet
 
   # - dataset_name: tiny_imagenet
   #   model_name: shake_resnet

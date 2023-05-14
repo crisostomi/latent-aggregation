@@ -98,3 +98,13 @@ class SameClassesDisjSamplesDatamodule(MyDataModule):
             dataloaders.append(global_dataloader)
 
         return dataloaders
+
+    def anchor_dataloader(self) -> DataLoader:
+        return DataLoader(
+            self.datasets["anchors"][self.task_ind],
+            shuffle=False,
+            batch_size=self.batch_size.train,
+            num_workers=self.num_workers.train,
+            pin_memory=self.pin_memory,
+            collate_fn=partial(collate_fn, split="anchors", metadata=self.metadata),
+        )

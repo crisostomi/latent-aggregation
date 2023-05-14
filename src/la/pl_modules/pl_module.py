@@ -46,7 +46,7 @@ class MyLightningModule(pl.LightningModule):
     def on_after_batch_transfer(self, batch, dataloader_idx):
         x = batch["x"]
 
-        if self.trainer.training:
+        if self.trainer.training and self.training:
             x = self.data_augm(x)
 
         batch["x"] = x

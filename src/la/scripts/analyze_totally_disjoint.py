@@ -80,7 +80,7 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     pylogger.info(f"Running experiment on {dataset_name} embedded with {model_name}.")
 
-    dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/totally_disjoint/partition-1_{model_name}"
+    dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/totally_disjoint/partition-1_{model_name}_embedded"
 
     data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=dataset_path)
 

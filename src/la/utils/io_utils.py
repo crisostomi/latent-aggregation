@@ -1,14 +1,7 @@
 from collections import namedtuple
 from pathlib import Path
 from la.utils.utils import MyDatasetDict, convert_to_rgb
-from datasets import (
-    load_dataset,
-    DatasetDict,
-    load_from_disk,
-    Dataset,
-    concatenate_datasets,
-    Value,
-)
+from datasets import load_dataset, DatasetDict, load_from_disk, Dataset, concatenate_datasets, Value, Array3D
 
 from nn_core.common import PROJECT_ROOT
 
@@ -67,7 +60,12 @@ def preprocess_dataset(dataset, cfg):
     )
 
     # in case some images are not RGB, convert them to RGB
-    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
+    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x[cfg.image_key])}, desc="Converting to RGB")
+    dataset.set_format(type="numpy", columns=[cfg.image_key, cfg.label_key])
+
+    shape = dataset["train"][0]["img"].shape
+
+    dataset = dataset.cast_column("img", Array3D(dtype="uint8", shape=shape, id=None))
 
     return dataset
 
