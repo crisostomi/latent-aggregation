@@ -5,9 +5,10 @@ from pathlib import Path
 from typing import Dict, List, Optional, Union
 
 import hydra
-from datasets import Dataset, DatasetDict
+from datasets import Dataset, DatasetDict, Features
 from omegaconf import ListConfig
 from pytorch_lightning.callbacks import Callback, ModelCheckpoint
+from traitlets import Callable
 
 pylogger = logging.getLogger(__name__)
 
@@ -64,77 +65,6 @@ def convert_to_rgb(image):
     if image.mode != "RGB":
         return image.convert("RGB")
     return image
-
-
-class MyDatasetDict(DatasetDict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data_keys = None
-
-    def shard(self, num_shards, index) -> "DatasetDict":
-        # DatasetDict is missing the shard method somehow ?
-        return DatasetDict({k: dataset.shard(num_shards=num_shards, index=index) for k, dataset in self.items()})
-
-    def save_to_disk(
-        self,
-        dataset_dict_path: PathLike,
-        fs="deprecated",
-        max_shard_size: Optional[Union[str, int]] = None,
-        num_shards: Optional[Dict[str, int]] = None,
-        num_proc: Optional[int] = None,
-        storage_options: Optional[dict] = None,
-    ):
-        self.save_metadata(Path(dataset_dict_path) / "metadata.json")
-        tmp = self["metadata"]
-        del self["metadata"]
-        super().save_to_disk(
-            dataset_dict_path,
-            fs=fs,
-            max_shard_size=max_shard_size,
-            num_shards=num_shards,
-            num_proc=num_proc,
-            storage_options=storage_options,
-        )
-        self["metadata"] = tmp
-
-    def set_format(
-        self,
-        type: Optional[str] = None,
-        columns: Optional[List] = None,
-        output_all_columns: bool = False,
-        **format_kwargs,
-    ):
-        for key in self.data_keys():
-            self[key].set_format(
-                type=type,
-                columns=columns,
-                output_all_columns=output_all_columns,
-                **format_kwargs,
-            )
-
-    def save_metadata(self, metadata_path: PathLike):
-        with open(metadata_path, "w") as f:
-            json.dump(self["metadata"], f)
-
-    @staticmethod
-    def load_from_disk(
-        dataset_dict_path: PathLike,
-        fs="deprecated",
-        keep_in_memory: Optional[bool] = None,
-        storage_options: Optional[dict] = None,
-    ) -> "MyDatasetDict":
-        dataset = MyDatasetDict(
-            DatasetDict.load_from_disk(
-                dataset_dict_path,
-                fs=fs,
-                keep_in_memory=keep_in_memory,
-                storage_options=storage_options,
-            )
-        )
-        dataset.data_keys = dataset.keys()
-
-        dataset["metadata"] = json.load(open(Path(dataset_dict_path) / "metadata.json"))
-        return dataset
 
 
 def get_checkpoint_callback(callbacks):
