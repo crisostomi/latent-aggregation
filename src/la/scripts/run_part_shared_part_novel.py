@@ -54,18 +54,20 @@ def run(cfg: DictConfig) -> str:
         pylogger.warning(f"No 'metadata' attribute found in datamodule <{datamodule.__class__.__name__}>")
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
+
+    assert num_tasks + 1 == len(cfg.nn.multi_architectures)
+
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
-        pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
+        pylogger.info(f"Instantiating <{cfg.nn.model[cfg.nn.multi_architectures[task_ind]]}>")
 
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.model,
+            cfg.nn.model[cfg.nn.multi_architectures[task_ind]],
             _recursive_=False,
             num_classes=len(task_class_vocab),
-            model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
         )
 
@@ -117,7 +119,9 @@ def run(cfg: DictConfig) -> str:
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
         datamodule.data[f"task_{task_ind}_test"] = embedded_samples["test"]
 
-    save_dataset_to_disk(datamodule.data, cfg.nn.output_path)
+    all_models = "_".join(list(cfg.nn.multi_architectures))
+    output_path = cfg.nn.data_path + "_" + all_models
+    save_dataset_to_disk(datamodule.data, output_path)
 
     return logger.run_dir
 

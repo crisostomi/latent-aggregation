@@ -43,7 +43,7 @@ which will prompt you to either create a new token or paste an existing one.
 Re-install the project in edit mode:
 
 ```bash
-pip install -e .[dev]
+pip install -e '.[dev]'
 ```
 
 ## Experiment flow
@@ -54,7 +54,7 @@ Each experiment `exp_name` in `part_shared_part_novel, same_classes_disj_samples
 - `analyze_${exp_name}.py` obtains the results for the experiment.
 
 Each script has a corresponding conf file in `conf/` with the same name.
-So, to run the `part_shared_part_novel`, you have to first configure the experiment in `conf/prepare_data_part_shared_part_novel.yaml`. In this case, you have to choose a value for `num_shared_classes` and `num_novel_classes_per_task`. Now you will prepare the data via 
+So, to run the `part_shared_part_novel`, you have to first configure the experiment in `conf/prepare_data_part_shared_part_novel.yaml`. In this case, you have to choose a value for `num_shared_classes` and `num_novel_classes_per_task`. Now you will prepare the data via
 ```
 python src/la/scripts/prepare_data_part_shared_part_novel.py
 ```

@@ -15,7 +15,7 @@ model:
 
   classifier:
     _target_: torch.nn.Linear
-    in_features: ${nn.model.model.projector.projection_dim}
+    in_features: ${..projector.projection_dim}
     out_features: ???
 
 optimizer:
