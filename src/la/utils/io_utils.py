@@ -1,6 +1,7 @@
 from collections import namedtuple
 from pathlib import Path
-from la.utils.utils import MyDatasetDict, convert_to_rgb
+from la.utils.utils import convert_to_rgb
+from la.data.my_dataset_dict import MyDatasetDict
 from datasets import (
     load_dataset,
     DatasetDict,

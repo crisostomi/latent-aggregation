@@ -11,7 +11,7 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from datasets import Dataset, concatenate_datasets
 
-from la.utils.utils import MyDatasetDict
+from la.data.my_dataset_dict import MyDatasetDict
 
 pylogger = logging.getLogger(__name__)
 
@@ -113,7 +113,6 @@ class MyDataModule(pl.LightningDataModule):
 
         self.img_size = self.data["task_0_train"][0]["x"].size[1]
 
-        self.tasks = {key for key in self.data.keys() if key != "metadata"}
         self.num_tasks = self.data["metadata"]["num_tasks"]
 
         self.task_ind = None  # will be set in setup
@@ -121,9 +120,9 @@ class MyDataModule(pl.LightningDataModule):
         self.shuffle_train = True
 
         self.only_use_sample_num = only_use_sample_num
+
         if only_use_sample_num >= 0:
-            for task in self.tasks:
-                self.data[task] = self.data[task].select(range(only_use_sample_num))
+            self.data.select(range(only_use_sample_num))
 
         pylogger.info("Preprocessing done.")
 

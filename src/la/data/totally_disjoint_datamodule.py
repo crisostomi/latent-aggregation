@@ -13,7 +13,7 @@ from datasets import Dataset, concatenate_datasets
 from la.data.datamodule import MyDataModule, collate_fn
 
 from la.prelim_exp.prelim_exp_dataset import MyDataset
-from la.utils.utils import MyDatasetDict
+from la.data.my_dataset_dict import MyDatasetDict
 
 pylogger = logging.getLogger(__name__)
 

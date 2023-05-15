@@ -25,7 +25,7 @@ pylogger = logging.getLogger(__name__)
 class MyLightningModule(pl.LightningModule):
     logger: NNLogger
 
-    def __init__(self, num_classes, transform_func, input_dim, *args, **kwargs) -> None:
+    def __init__(self, num_classes, transform_func, input_dim, do_data_augmentation=True, *args, **kwargs) -> None:
         super().__init__()
 
         self.num_classes = num_classes
@@ -36,7 +36,10 @@ class MyLightningModule(pl.LightningModule):
         self.train_accuracy = metric.clone()
         self.val_accuracy = metric.clone()
         self.test_accuracy = metric.clone()
-        self.data_augm = DataAugmentation(input_dim)
+        if do_data_augmentation:
+            self.data_augm = DataAugmentation(input_dim)
+        else:
+            self.data_augm = nn.Identity()
 
     def step(self, x, y) -> Mapping[str, Any]:
         logits = self(x)["logits"]
