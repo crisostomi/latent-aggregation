@@ -111,8 +111,9 @@ class MyDataModule(pl.LightningDataModule):
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
 
-        self.img_size = self.data["task_0_train"][0]["x"].size[1]
+        self.img_size = self.data["task_0_train"]["img"][0].shape[1]
 
+        self.tasks = {key for key in self.data.keys() if key != "metadata"}
         self.num_tasks = self.data["metadata"]["num_tasks"]
 
         self.task_ind = None  # will be set in setup
@@ -177,12 +178,18 @@ class MyDataModule(pl.LightningDataModule):
     def __repr__(self) -> str:
         return f"{self.__class__.__name__}(" f"{self.datasets=}, " f"{self.num_workers=}, " f"{self.batch_size=})"
 
-    def dataloader(self, mode):
+    def dataloader(self, mode, only_task_specific_test=False):
         if mode == "train":
             return self.train_dataloader()
         elif mode == "val":
             return self.val_dataloader()
         elif mode == "test":
+            # at embedding time, we only want to embed the task-specific test samples
+            if only_task_specific_test:
+                test_dataloader = self.test_dataloader()
+                return test_dataloader[0] if isinstance(test_dataloader, list) else test_dataloader
             return self.test_dataloader()
+        elif mode == "anchors":
+            return self.anchor_dataloader()
         else:
             raise ValueError(f"Mode {mode} not supported")

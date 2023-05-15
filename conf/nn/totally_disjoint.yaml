@@ -8,7 +8,7 @@ output_path: ${nn.data_path}_${nn.model.name}
 data:
   _target_: la.data.totally_disjoint_datamodule.TotallyDisjointDatamodule
   data_path: ${nn.data_path}
-  only_use_sample_num: -1 # -1 means use all samples
+  only_use_sample_num: 1000 # -1 means use all samples
 
   gpus: ${train.trainer.gpus}
 

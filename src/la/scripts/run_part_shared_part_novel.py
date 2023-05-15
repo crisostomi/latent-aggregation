@@ -23,7 +23,7 @@ from tqdm import tqdm
 from la.data.datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
 from la.utils.io_utils import save_dataset_to_disk
-from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
+from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
 
 disable_caching()
 pylogger = logging.getLogger(__name__)
@@ -113,7 +113,7 @@ def run(cfg: DictConfig) -> str:
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
         best_model.eval().cuda()
 
-        embedded_samples = embed_task_samples(datamodule, best_model, task_ind)
+        embedded_samples = embed_task_samples(datamodule, best_model, task_ind, modes=["train", "val", "test"])
 
         datamodule.data[f"task_{task_ind}_train"] = embedded_samples["train"]
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
@@ -124,45 +124,6 @@ def run(cfg: DictConfig) -> str:
     save_dataset_to_disk(datamodule.data, output_path)
 
     return logger.run_dir
-
-
-def embed_task_samples(datamodule, model, task_ind) -> Dict:
-    datamodule.shuffle_train = False
-
-    modes = ["train", "val", "test"]
-
-    embeddings = {mode: None for mode in modes}
-
-    for mode in modes:
-        mode_embeddings = []
-
-        for batch in tqdm(datamodule.dataloader(mode), desc=f"Embedding {mode} samples"):
-            x = batch["x"].to("cuda")
-            mode_embeddings.extend(model(x)["embeds"].detach())
-
-        embeddings[mode] = torch.stack(mode_embeddings)
-
-    embedded_samples = {mode: None for mode in modes}
-
-    map_params = {
-        "with_indices": True,
-        "batched": True,
-        "batch_size": 128,
-        "num_proc": 1,
-        "writer_batch_size": 10,
-    }
-
-    for mode in modes:
-        embedded_samples[mode] = datamodule.data[f"task_{task_ind}_{mode}"].map(
-            function=lambda x, ind: {
-                "embedding": embeddings[mode][ind],
-            },
-            desc=f"Storing embedded {mode} samples",
-            **map_params,
-            remove_columns=["x"],
-        )
-
-    return embedded_samples
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="run_part_shared_part_novel")
