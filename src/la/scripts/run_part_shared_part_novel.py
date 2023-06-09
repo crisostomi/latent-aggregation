@@ -54,6 +54,7 @@ def run(cfg: DictConfig) -> str:
         pylogger.warning(f"No 'metadata' attribute found in datamodule <{datamodule.__class__.__name__}>")
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
+
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
@@ -111,21 +112,18 @@ def run(cfg: DictConfig) -> str:
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
         best_model.eval().cuda()
 
-        embedded_samples = embed_task_samples(datamodule, best_model, task_ind)
+        embedded_samples = embed_task_samples(datamodule, best_model, task_ind, modes=["train", "val", "test"])
 
         datamodule.data[f"task_{task_ind}_train"] = embedded_samples["train"]
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
-        datamodule.data[f"task_{task_ind}_test"] = embedded_samples["test"]
 
     save_dataset_to_disk(datamodule.data, cfg.nn.output_path)
 
     return logger.run_dir
 
 
-def embed_task_samples(datamodule, model, task_ind) -> Dict:
+def embed_task_samples(datamodule, model, task_ind, modes) -> Dict:
     datamodule.shuffle_train = False
-
-    modes = ["train", "val", "test"]
 
     embeddings = {mode: None for mode in modes}
 
