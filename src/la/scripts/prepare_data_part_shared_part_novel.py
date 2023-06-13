@@ -22,7 +22,8 @@ from omegaconf import DictConfig, omegaconf
 from pytorch_lightning import seed_everything
 from la.utils.io_utils import add_ids_to_dataset, load_data, preprocess_dataset, save_dataset_to_disk
 
-from la.utils.utils import MyDatasetDict, convert_to_rgb
+from la.data.my_dataset_dict import MyDatasetDict
+from la.utils.utils import convert_to_rgb
 
 pylogger = logging.getLogger(__name__)
 

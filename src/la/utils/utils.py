@@ -41,24 +41,6 @@ def encode_field(batch, src_field: str, tgt_field: str, transformation):
     return {tgt_field: transformed}
 
 
-def preprocess_img(x):
-    """
-    (H, W, C) --> (C, H, W)
-    :param x: (H, W, C)
-    :return:
-    """
-    if x.ndim == 2:
-        x = x.unsqueeze(-1)
-        x = x.repeat_interleave(3, axis=2)
-
-    if x.ndim == 4:
-        x = x.permute(0, 3, 1, 2)
-    else:
-        x = x.permute(2, 0, 1)
-
-    return x.float() / 255.0
-
-
 class ConvertToRGB:
     def __call__(self, image):
         convert_to_rgb(image)
@@ -68,74 +50,8 @@ def convert_to_rgb(image):
     if image.mode != "RGB":
         return image.convert("RGB")
 
-    return np.array(image)
-
-
-class MyDatasetDict(DatasetDict):
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.data_keys = None
-
-    def save_to_disk(
-        self,
-        dataset_dict_path: PathLike,
-        fs="deprecated",
-        max_shard_size: Optional[Union[str, int]] = None,
-        num_shards: Optional[Dict[str, int]] = None,
-        num_proc: Optional[int] = None,
-        storage_options: Optional[dict] = None,
-    ):
-        self.save_metadata(Path(dataset_dict_path) / "metadata.json")
-        tmp = self["metadata"]
-        del self["metadata"]
-        super().save_to_disk(
-            dataset_dict_path,
-            fs=fs,
-            max_shard_size=max_shard_size,
-            num_shards=num_shards,
-            num_proc=num_proc,
-            storage_options=storage_options,
-        )
-        self["metadata"] = tmp
-
-    def set_format(
-        self,
-        type: Optional[str] = None,
-        columns: Optional[List] = None,
-        output_all_columns: bool = False,
-        **format_kwargs,
-    ):
-        for key in self.data_keys():
-            self[key].set_format(
-                type=type,
-                columns=columns,
-                output_all_columns=output_all_columns,
-                **format_kwargs,
-            )
-
-    def save_metadata(self, metadata_path: PathLike):
-        with open(metadata_path, "w") as f:
-            json.dump(self["metadata"], f)
-
-    @staticmethod
-    def load_from_disk(
-        dataset_dict_path: PathLike,
-        fs="deprecated",
-        keep_in_memory: Optional[bool] = None,
-        storage_options: Optional[dict] = None,
-    ) -> "MyDatasetDict":
-        dataset = MyDatasetDict(
-            DatasetDict.load_from_disk(
-                dataset_dict_path,
-                fs=fs,
-                keep_in_memory=keep_in_memory,
-                storage_options=storage_options,
-            )
-        )
-        dataset.data_keys = dataset.keys()
-
-        dataset["metadata"] = json.load(open(Path(dataset_dict_path) / "metadata.json"))
-        return dataset
+    # return np.array(image)
+    return image
 
 
 def get_checkpoint_callback(callbacks):
@@ -205,6 +121,8 @@ def embed_task_samples(datamodule, model, task_ind, modes) -> Dict:
         "writer_batch_size": 10,
     }
 
+    remove_columns = [] if datamodule.keep_img_column else ["x"]
+
     for mode in modes:
         embedded_samples[mode] = datamodule.data[f"task_{task_ind}_{mode}"].map(
             function=lambda x, ind: {
@@ -212,7 +130,7 @@ def embed_task_samples(datamodule, model, task_ind, modes) -> Dict:
             },
             desc=f"Storing embedded {mode} samples",
             **map_params,
-            remove_columns=["x"],
+            remove_columns=remove_columns,
         )
 
     return embedded_samples
@@ -279,3 +197,7 @@ def scatter_mean(
     else:
         torch.div(out, count, rounding_mode="floor")
     return out
+
+
+def standard_normalization(x):
+    return (x - x.mean(dim=0)) / x.std(dim=0)

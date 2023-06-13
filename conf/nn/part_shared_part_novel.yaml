@@ -6,13 +6,14 @@ defaults:
   - _self_
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
-num_shared_classes: 20 # 80 60 40 20
+num_shared_classes: 80 # 80 60 40 20
 num_novel_classes_per_task: 10 # 5
 data_path: ${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/part_shared_part_novel/S${nn.num_shared_classes}_N${nn.num_novel_classes_per_task}
 # output_path: ${nn.data_path}_${nn.model.name}
 
-# length must be the same as num tasks + 0 (fake tast)
-multi_architectures: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn'] # 20 10
+# length must be the same as num tasks + 0 (fake task)
+task_models: ['vanilla_cnn']
+# task_models: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn'] # 20 10
 # ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn'] -> 40 10
 # ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn'] -> 60 10 - 80 5
 
@@ -20,6 +21,7 @@ data:
   _target_: la.data.part_shared_part_novel_datamodule.PartSharedPartNovelDatamodule
   data_path: ${nn.data_path}
   only_use_sample_num: -1 # -1 means use all samples
+  keep_img_column: True
 
   gpus: ${train.trainer.gpus}
 

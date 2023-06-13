@@ -4,14 +4,23 @@ core:
   storage_dir: ${oc.env:PROJECT_ROOT}/storage
   version: 0.0.1
   tags:
-    - dev
-    - totally_disjoint
+    - class_subsets
 
+image_key: x
+label_key: y
+seed: 42
+
+num_task_classes: 30
+num_tasks: 4
+
+subtask_dataset_path: "${oc.env:PROJECT_ROOT}/matrioska_learning/subtasks"
+subtask_embedding_path: "${oc.env:PROJECT_ROOT}/matrioska_learning/subtasks_embeddings"
 
 defaults:
   - hydra: default
-  - nn: totally_disjoint
-  - train: totally_disjoint
+  - dataset: cifar100
+  - nn@nn.model: model/vanilla_cnn
+  - train: matrioska
   - _self_ # as last argument to allow the override of parameters via this main config
 #    Decomment this parameter to get parallel job running
 #  - hydra/launcher: joblib

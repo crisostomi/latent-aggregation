@@ -98,6 +98,7 @@ class MyDataModule(pl.LightningDataModule):
         gpus: Optional[Union[List[int], str, int]],
         data_path: Path,
         only_use_sample_num: int = -1,
+        keep_img_column: bool = False,
     ):
         super().__init__()
         self.num_workers = num_workers
@@ -106,14 +107,17 @@ class MyDataModule(pl.LightningDataModule):
         self.pin_memory: bool = gpus is not None and str(gpus) != "0"
         self.pin_memory = False
 
+        self.keep_img_column = keep_img_column
+
         # each mode will have multiple tasks
         self.datasets = {"train": {}, "val": {}, "test": {}}
 
         self.data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=str(data_path))
+        self.data.set_format("numpy", columns=["img", "y"])
 
         self.img_size = self.data["task_0_train"]["img"][0].shape[1]
 
-        self.tasks = {key for key in self.data.keys() if key != "metadata"}
+        self.tasks = [key for key in self.data.keys() if key != "metadata"]
         self.num_tasks = self.data["metadata"]["num_tasks"]
 
         self.task_ind = None  # will be set in setup

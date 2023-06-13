@@ -4,9 +4,72 @@ import torch
 import torch.nn as nn
 import torchmetrics
 from torch.nn import functional as F
+from pytorch_lightning.utilities.types import STEP_OUTPUT
 
 
 class Model(pytorch_lightning.LightningModule):
+    def __init__(
+        self,
+        classifier: nn.Module,
+        use_relatives: bool,
+    ):
+        super().__init__()
+        self.classifier = classifier
+
+        self.accuracy = torchmetrics.Accuracy()
+
+        self.use_relatives = use_relatives
+        self.embedding_key = "relative_embeddings" if self.use_relatives else "embedding"
+
+    def forward(self, batch):
+        x = batch[self.embedding_key]
+        return self.classifier(x)
+
+    def training_step(self, batch, batch_idx):
+        y = batch["y"]
+
+        y_hat = self(batch)
+
+        loss = F.cross_entropy(y_hat, y)
+        self.log("train_loss", loss, on_epoch=True, prog_bar=True)
+
+        return loss
+
+    def validation_step(self, batch, batch_idx):
+        y = batch["y"]
+
+        y_hat = self(batch)
+
+        loss = F.cross_entropy(y_hat, y)
+        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
+
+        val_acc = self.accuracy(y_hat, y)
+        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        return loss
+
+    def test_step(self, batch, batch_idx):
+        y = batch["y"]
+
+        y_hat = self(batch)
+
+        loss = F.cross_entropy(y_hat, y)
+        self.log("test_loss", loss, on_epoch=True)
+
+        test_acc = self.accuracy(y_hat, y)
+        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
+
+        return loss
+
+    def configure_optimizers(self):
+        return torch.optim.Adam(self.parameters(), lr=1e-3)
+
+
+class PartSharedPartNovelModel(Model):
+    """
+    Same as Model but also logs the accuracy for shared and non-shared classes
+    """
+
     def __init__(
         self,
         classifier: nn.Module,
@@ -14,8 +77,7 @@ class Model(pytorch_lightning.LightningModule):
         non_shared_classes: set,
         use_relatives: bool,
     ):
-        super().__init__()
-        self.classifier = classifier
+        super().__init__(classifier, use_relatives)
 
         shared_classes = torch.Tensor(list(shared_classes)).long()
         non_shared_classes = torch.Tensor(list(non_shared_classes)).long()
@@ -24,30 +86,6 @@ class Model(pytorch_lightning.LightningModule):
         self.register_buffer("non_shared_classes", non_shared_classes)
 
         self.accuracy = torchmetrics.Accuracy()
-
-        self.use_relatives = use_relatives
-        self.embedding_key = "relative_embeddings" if self.use_relatives else "embedding"
-
-    def forward(self, x):
-        return self.classifier(x)
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("train_loss", loss, on_step=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("val_loss", loss, on_step=True, prog_bar=True)
-
-        val_acc = self.accuracy(y_hat, y)
-        self.log("val_acc", val_acc, on_step=True, on_epoch=True, prog_bar=True)
-
-        return loss
 
     def test_step(self, batch, batch_idx):
         x, y = batch[self.embedding_key], batch["y"]
@@ -90,15 +128,13 @@ class Model(pytorch_lightning.LightningModule):
 
         return loss
 
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
-
 
 class Classifier(nn.Module):
     def __init__(self, input_dim, classifier_embed_dim, num_classes):
         super().__init__()
         self.classifier = nn.Sequential(
-            nn.LayerNorm(input_dim),
+            # nn.LayerNorm(input_dim),
+            nn.InstanceNorm1d(input_dim),
             nn.Linear(input_dim, classifier_embed_dim),
             nn.ReLU(),
             nn.Linear(classifier_embed_dim, num_classes),
@@ -164,3 +200,66 @@ def run_classification_experiment(
     }
 
     return results
+
+
+class KNNClassifier(pytorch_lightning.LightningModule):
+    def __init__(self, train_dataset, num_classes, use_relatives):
+        super().__init__()
+        self.train_dataset = train_dataset
+        self.num_classes = num_classes
+        self.accuracy = torchmetrics.Accuracy()
+        self.embedding_key = "relative_embeddings" if use_relatives else "embedding"
+
+    def on_train_epoch_end(self) -> None:
+        prototypes = compute_prototypes(
+            self.train_dataset[self.embedding_key], self.train_dataset["y"], num_classes=self.num_classes
+        )
+        self.register_buffer("prototypes", prototypes)
+
+    def forward(self, x):
+        distances = torch.cdist(x, self.prototypes)
+
+        predictions = torch.argmin(distances, dim=1)
+
+        return predictions
+
+    def training_step(self, *args, **kwargs) -> STEP_OUTPUT:
+        pass
+
+    def test_step(self, batch, batch_idx):
+        assert self.prototypes is not None
+        x, y = batch[self.embedding_key], batch["y"]
+        y_hat = self(x)
+
+        test_acc = self.accuracy(y_hat, y)
+        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
+
+    def configure_optimizers(self):
+        pass
+
+
+class TaskEmbeddingModel(Model):
+    def __init__(self, num_tasks, task_embedding_dim, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.task_embedding = nn.Embedding(num_tasks, task_embedding_dim)
+
+    def forward(self, batch):
+
+        x, task_ids = batch[self.embedding_key], batch["task"]
+
+        task_embedding = self.task_embedding(task_ids - 1)
+        x = torch.cat([x, task_embedding], dim=1)
+
+        return self.classifier(x)
+
+
+def compute_prototypes(x, y, num_classes):
+    prototypes = []
+    for i in range(num_classes):
+        samples_class_i = x[y == i]
+        prototype = torch.mean(samples_class_i, dim=0)
+        prototypes.append(prototype)
+
+    prototypes = torch.stack(prototypes)
+
+    return prototypes
