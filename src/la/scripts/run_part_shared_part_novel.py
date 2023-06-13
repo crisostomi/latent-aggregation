@@ -25,7 +25,7 @@ from la.pl_modules.efficient_net import MyEfficientNet
 from la.utils.io_utils import save_dataset_to_disk
 from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
 
-disable_caching()
+# disable_caching()
 pylogger = logging.getLogger(__name__)
 
 
@@ -55,17 +55,23 @@ def run(cfg: DictConfig) -> str:
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
 
-    assert num_tasks + 1 == len(cfg.nn.multi_architectures)
+    task_embedders = {f"task_{i}": None for i in range(num_tasks + 1)}
+
+    assert num_tasks + 1 == len(cfg.nn.task_models) or len(cfg.nn.task_models) == 1
+
+    task_models = (
+        cfg.nn.task_models if len(cfg.nn.task_models) == num_tasks + 1 else [cfg.nn.task_models[0]] * (num_tasks + 1)
+    )
 
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
-        pylogger.info(f"Instantiating <{cfg.nn.model[cfg.nn.multi_architectures[task_ind]]}>")
+        pylogger.info(f"Instantiating <{cfg.nn.model[task_models[task_ind]]}>")
 
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.model[cfg.nn.multi_architectures[task_ind]],
+            cfg.nn.model[task_models[task_ind]],
             _recursive_=False,
             num_classes=len(task_class_vocab),
             input_dim=datamodule.img_size,
@@ -113,13 +119,21 @@ def run(cfg: DictConfig) -> str:
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
         best_model.eval().cuda()
 
+        task_embedders[f"task_{task_ind}"] = {
+            "path": best_model_path,
+            "class": str(model.__class__.__module__ + "." + model.__class__.__qualname__),
+        }
+
         embedded_samples = embed_task_samples(datamodule, best_model, task_ind, modes=["train", "val", "test"])
 
         datamodule.data[f"task_{task_ind}_train"] = embedded_samples["train"]
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
 
-    all_models = "_".join(list(cfg.nn.multi_architectures))
+    all_models = "_".join(list(cfg.nn.task_models))
     output_path = cfg.nn.data_path + "_" + all_models
+
+    datamodule.data["metadata"]["task_embedders"] = task_embedders
+
     save_dataset_to_disk(datamodule.data, output_path)
 
     return logger.run_dir

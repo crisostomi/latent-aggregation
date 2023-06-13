@@ -25,7 +25,7 @@ import torch.nn as nn
 
 import la  # noqa
 from la.utils.cka import CKA
-from la.utils.class_analysis import Classifier
+from la.utils.class_analysis import Classifier, KNNClassifier, Model
 from la.utils.relative_analysis import compare_merged_original_qualitative
 from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
@@ -347,92 +347,6 @@ def compute_prototypes(x, y, num_classes):
     prototypes = torch.stack(prototypes)
 
     return prototypes
-
-
-class KNNClassifier(pytorch_lightning.LightningModule):
-    def __init__(self, train_dataset, num_classes, use_relatives):
-        super().__init__()
-        self.train_dataset = train_dataset
-        self.num_classes = num_classes
-        self.accuracy = torchmetrics.Accuracy()
-        self.embedding_key = "relative_embeddings" if use_relatives else "embedding"
-
-    def on_train_epoch_end(self) -> None:
-        prototypes = compute_prototypes(
-            self.train_dataset[self.embedding_key], self.train_dataset["y"], num_classes=self.num_classes
-        )
-        self.register_buffer("prototypes", prototypes)
-
-    def forward(self, x):
-        distances = torch.cdist(x, self.prototypes)
-
-        predictions = torch.argmin(distances, dim=1)
-
-        return predictions
-
-    def training_step(self, *args, **kwargs) -> STEP_OUTPUT:
-        pass
-
-    def test_step(self, batch, batch_idx):
-        assert self.prototypes is not None
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-
-        test_acc = self.accuracy(y_hat, y)
-        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-    def configure_optimizers(self):
-        pass
-
-
-class Model(pytorch_lightning.LightningModule):
-    def __init__(
-        self,
-        classifier: nn.Module,
-        use_relatives: bool,
-    ):
-        super().__init__()
-        self.classifier = classifier
-
-        self.accuracy = torchmetrics.Accuracy()
-
-        self.use_relatives = use_relatives
-        self.embedding_key = "relative_embeddings" if self.use_relatives else "embedding"
-
-    def forward(self, x):
-        return self.classifier(x)
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
-
-        val_acc = self.accuracy(y_hat, y)
-        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("test_loss", loss, on_epoch=True)
-
-        test_acc = self.accuracy(y_hat, y)
-        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_same_classes_disj_samples")

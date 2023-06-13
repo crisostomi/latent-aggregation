@@ -2,18 +2,12 @@ seed_index: 1
 deterministic: False
 num_anchors: 256
 
-
-tag: ""
-results_path: ${oc.env:PROJECT_ROOT}/results/totally_disjoint
-
-cka_results_path: ${results_path}/cka_analysis_A${num_anchors}${tag}.json
-class_results_path: ${results_path}/class_analysis_A${num_anchors}${tag}.json
-knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
-plots_path: ${results_path}/plots
-
-has_coarse_label:
-  cifar100: False # TODO: change back
-  tiny_imagenet: False
+run_analysis:
+  cka: True
+  classification: True
+  clustering: False
+  qualitative: True
+  knn: False
 
 dataset_names:
   - cifar100
@@ -25,6 +19,30 @@ model_names:
   - resnet
   - shake_resnet
 
+partitions:
+  - 1
+  - 2
+  - 3
+  - 4
+
+results_folder: ${oc.env:PROJECT_ROOT}/results/totally_disjoint
+results_path:
+  cka: ${results_folder}/cka_analysis.json
+  classification: ${results_folder}/class_analysis.json
+  clustering: ${results_folder}/clustering_analysis.json
+  plots: ${results_folder}/plots
+
+tag: ""
+
+cka_results_path: ${results_path}/cka_analysis_A${num_anchors}${tag}.json
+class_results_path: ${results_path}/class_analysis_A${num_anchors}${tag}.json
+knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
+plots_path: ${results_path}/plots
+
+has_coarse_label:
+  cifar100: False # TODO: change back
+  tiny_imagenet: False
+
 num_total_classes:
   cifar100: 100
   tiny_imagenet: 200
@@ -34,6 +52,19 @@ classifier_embed_dim: 256
 configurations:
   - dataset_name: cifar100
     model_name: from_scratch_cnn
+    partition_id: 1
+
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    partition_id: 2
+
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    partition_id: 3
+
+  - dataset_name: cifar100
+    model_name: from_scratch_cnn
+    partition_id: 4
 
   # - dataset_name: cifar100
   #   model_name: efficient_net

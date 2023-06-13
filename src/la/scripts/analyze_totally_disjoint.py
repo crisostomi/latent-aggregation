@@ -8,7 +8,6 @@ import hydra
 import matplotlib.pyplot as plt
 import omegaconf
 import pytorch_lightning
-from pytorch_lightning.utilities.types import STEP_OUTPUT
 import torch
 import torchmetrics
 from datasets import Dataset, concatenate_datasets
@@ -24,12 +23,12 @@ import torch.nn as nn
 
 import la  # noqa
 from la.utils.cka import CKA
-from la.utils.class_analysis import Classifier
+from la.utils.class_analysis import Classifier, TaskEmbeddingModel
 from la.utils.relative_analysis import compare_merged_original_qualitative
-from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
+from la.utils.utils import add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
-
-from la.utils.class_analysis import Classifier
+from la.data.my_dataset_dict import MyDatasetDict
+from la.utils.class_analysis import Classifier, KNNClassifier, Model
 
 pylogger = logging.getLogger(__name__)
 
@@ -40,28 +39,33 @@ def run(cfg: DictConfig) -> str:
     """
     seed_index_everything(cfg)
 
-    all_cka_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_class_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_knn_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
+    all_results = {}
+
+    analyses = ["cka", "classification", "clustering", "knn"]
+
+    for analysis in analyses:
+        all_results[analysis] = {
+            dataset_name: {
+                model_name: {partition: {} for partition in cfg.partitions} for model_name in cfg.model_names
+            }
+            for dataset_name in cfg.dataset_names
+        }
+
+    # check_runs_exist(cfg.configurations)
 
     for single_cfg in cfg.configurations:
-        cka_results, class_results, knn_results = single_configuration_experiment(cfg, single_cfg)
+        single_cfg_results = single_configuration_experiment(cfg, single_cfg)
 
-        all_cka_results[single_cfg.dataset_name][single_cfg.model_name] = cka_results
+        for analysis in analyses:
+            if cfg.run_analysis[analysis]:
+                all_results[analysis][single_cfg.dataset_name][single_cfg.model_name][
+                    single_cfg.partition_id
+                ] = single_cfg_results[analysis]
 
-        all_class_results[single_cfg.dataset_name][single_cfg.model_name] = class_results
+    for analysis in analyses:
 
-        all_knn_results[single_cfg.dataset_name][single_cfg.model_name] = knn_results
-
-    save_dict_to_file(path=cfg.cka_results_path, content=all_cka_results)
-    save_dict_to_file(path=cfg.class_results_path, content=all_class_results)
-    save_dict_to_file(path=cfg.knn_results_path, content=all_knn_results)
+        if cfg.run_analysis[analysis]:
+            save_dict_to_file(path=cfg.results_path[analysis], content=all_results[analysis])
 
 
 def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConfig):
@@ -71,16 +75,15 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     :param global_cfg: shared configurations for the suite of experiments
     :param single_cfg: configurations for the current experiment
     """
-    dataset_name, model_name = (
-        single_cfg.dataset_name,
-        single_cfg.model_name,
-    )
+    dataset_name, model_name, partition_id = (single_cfg.dataset_name, single_cfg.model_name, single_cfg.partition_id)
 
     has_coarse_label = global_cfg.has_coarse_label[dataset_name]
 
     pylogger.info(f"Running experiment on {dataset_name} embedded with {model_name}.")
 
-    dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/totally_disjoint/partition-1_{model_name}_embedded"
+    dataset_path = (
+        f"{PROJECT_ROOT}/data/{dataset_name}/totally_disjoint/partition-{partition_id}_{model_name}_embedding"
+    )
 
     data: MyDatasetDict = MyDatasetDict.load_from_disk(dataset_dict_path=dataset_path)
 
@@ -150,81 +153,154 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     assert torch.all(torch.eq(merged_dataset_test["id"], original_dataset_test["id"]))
 
-    # qualitative comparison absolute -- merged
-    plots_path = Path(global_cfg.plots_path) / dataset_name / model_name
+    if global_cfg.run_analysis["qualitative"]:
+        # qualitative comparison absolute -- merged
+        plots_path = Path(global_cfg.plots_path) / dataset_name / model_name / f"partition-{partition_id}"
+        plots_path.mkdir(parents=True, exist_ok=True)
 
-    compare_merged_original_qualitative(
-        original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, prefix="", suffix="all_classes"
+        compare_merged_original_qualitative(
+            original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, prefix="", suffix="all_classes"
+        )
+
+    results = {}
+
+    if global_cfg.run_analysis["cka"]:
+
+        cka = CKA(mode="linear", device="cuda")
+
+        cka_rel_abs = cka(merged_dataset_test["relative_embeddings"], merged_dataset_test["embedding"])
+
+        cka_tot = cka(merged_dataset_test["relative_embeddings"], original_dataset_test["relative_embeddings"])
+
+        results["cka"] = {
+            "cka_rel_abs": cka_rel_abs.detach().item(),
+            "cka_tot": cka_tot.detach().item(),
+        }
+
+    if global_cfg.run_analysis["knn"]:
+
+        knn_results_original_abs = run_knn_class_experiment(
+            num_total_classes,
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=False,
+        )
+
+        knn_results_original_rel = run_knn_class_experiment(
+            num_total_classes,
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=True,
+        )
+
+        knn_results_merged = run_knn_class_experiment(
+            num_total_classes, train_dataset=merged_dataset_train, test_dataset=merged_dataset_test, use_relatives=True
+        )
+
+        results["knn"] = {
+            "original_abs": knn_results_original_abs,
+            "original_rel": knn_results_original_rel,
+            "merged": knn_results_merged,
+        }
+
+    if global_cfg.run_analysis["classification"]:
+
+        label_to_task = {
+            int(label): i
+            for i in range(1, num_tasks + 1)
+            for label in data["metadata"]["global_to_local_class_mappings"][f"task_{i}"].keys()
+        }
+
+        original_dataset_train = add_task_id(original_dataset_train, label_to_task)
+        original_dataset_test = add_task_id(original_dataset_test, label_to_task)
+
+        class_exp = partial(
+            run_classification_experiment,
+            num_total_classes=num_total_classes,
+            classifier_embed_dim=global_cfg.classifier_embed_dim,
+            num_tasks=num_tasks,
+        )
+
+        # add num_tasks dimensions to the absolute space which are the one-hot encoding of the task
+        task_onehot_dataset_train = add_task_one_hot(original_dataset_train, num_tasks)
+        task_onehot_dataset_test = add_task_one_hot(original_dataset_test, num_tasks)
+
+        class_results_task_aware_abs = class_exp(
+            train_dataset=task_onehot_dataset_train,
+            test_dataset=task_onehot_dataset_test,
+            use_relatives=False,
+            input_dim=task_onehot_dataset_train["embedding"].shape[1],
+        )
+
+        jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
+        jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
+        class_results_jumble = class_exp(
+            train_dataset=jumble_train,
+            test_dataset=jumble_test,
+            use_relatives=False,
+            input_dim=original_dataset_train["embedding"].shape[1],
+        )
+
+        class_results_original_task_embedding = class_exp(
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=False,
+            input_dim=original_dataset_train["embedding"].shape[1],
+            embed_tasks=True,
+        )
+
+        class_results_original_abs = class_exp(
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=False,
+            input_dim=original_dataset_train["embedding"].shape[1],
+        )
+
+        class_results_original_rel = class_exp(
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=True,
+            input_dim=num_anchors,
+        )
+
+        class_results_merged = class_exp(
+            train_dataset=merged_dataset_train,
+            test_dataset=merged_dataset_test,
+            use_relatives=True,
+            input_dim=num_anchors,
+        )
+
+        results["classification"] = {
+            "original_abs": class_results_original_abs,
+            "original_rel": class_results_original_rel,
+            "jumble": class_results_jumble,
+            "merged": class_results_merged,
+            "task_onehot_abs": class_results_task_aware_abs,
+            "task_embed_abs": class_results_original_task_embedding,
+        }
+
+    return results
+
+
+def add_task_id(dataset, label_to_task):
+    dataset = dataset.map(
+        lambda row: {"task": label_to_task[row["y"].item()]},
+        desc="Mapping labels to tasks.",
+    )
+    dataset.set_format("torch", columns=["embedding", "task", "y", "relative_embeddings"])
+
+    return dataset
+
+
+def add_task_one_hot(dataset, num_tasks):
+
+    task_one_hot = torch.nn.functional.one_hot(dataset["task"] - 1, num_tasks).float()
+
+    task_aware_dataset = dataset.map(
+        lambda row: {"embedding": torch.cat([row["embedding"], task_one_hot[row["task"] - 1]])},
     )
 
-    # CKA analysis
-
-    cka = CKA(mode="linear", device="cuda")
-
-    cka_rel_abs = cka(merged_dataset_test["relative_embeddings"], merged_dataset_test["embedding"])
-
-    cka_tot = cka(merged_dataset_test["relative_embeddings"], original_dataset_test["relative_embeddings"])
-
-    cka_results = {
-        "cka_rel_abs": cka_rel_abs.detach().item(),
-        "cka_tot": cka_tot.detach().item(),
-    }
-
-    # KNN classification experiment
-    knn_results_original_abs = run_knn_class_experiment(
-        num_total_classes, train_dataset=original_dataset_train, test_dataset=original_dataset_test, use_relatives=False
-    )
-
-    knn_results_original_rel = run_knn_class_experiment(
-        num_total_classes, train_dataset=original_dataset_train, test_dataset=original_dataset_test, use_relatives=True
-    )
-
-    knn_results_merged = run_knn_class_experiment(
-        num_total_classes, train_dataset=merged_dataset_train, test_dataset=merged_dataset_test, use_relatives=True
-    )
-
-    knn_results = {
-        "original_abs": knn_results_original_abs,
-        "original_rel": knn_results_original_rel,
-        "merged": knn_results_merged,
-    }
-
-    # Classification analysis
-
-    class_exp = partial(
-        run_classification_experiment,
-        num_total_classes=num_total_classes,
-        classifier_embed_dim=global_cfg.classifier_embed_dim,
-    )
-
-    class_results_original_abs = class_exp(
-        train_dataset=original_dataset_train,
-        test_dataset=original_dataset_test,
-        use_relatives=False,
-        input_dim=original_dataset_train["embedding"].shape[1],
-    )
-
-    class_results_original_rel = class_exp(
-        train_dataset=original_dataset_train,
-        test_dataset=original_dataset_test,
-        use_relatives=True,
-        input_dim=num_anchors,
-    )
-
-    class_results_merged = class_exp(
-        train_dataset=merged_dataset_train,
-        test_dataset=merged_dataset_test,
-        use_relatives=True,
-        input_dim=num_anchors,
-    )
-
-    class_results = {
-        "original_abs": class_results_original_abs,
-        "original_rel": class_results_original_rel,
-        "merged": class_results_merged,
-    }
-
-    return cka_results, class_results, knn_results
+    return task_aware_dataset
 
 
 def map_labels_to_global(data, num_tasks):
@@ -260,6 +336,8 @@ def run_classification_experiment(
     test_dataset,
     use_relatives: bool,
     classifier_embed_dim: int,
+    num_tasks: int,
+    embed_tasks: bool = False,
 ):
     """ """
     seed_everything(42)
@@ -272,15 +350,32 @@ def run_classification_experiment(
 
     trainer_func = partial(Trainer, gpus=1, max_epochs=100, logger=False, enable_progress_bar=True)
 
-    classifier = Classifier(
-        input_dim=input_dim,
-        classifier_embed_dim=classifier_embed_dim,
-        num_classes=num_total_classes,
-    )
-    model = Model(
-        classifier=classifier,
-        use_relatives=use_relatives,
-    )
+    if embed_tasks:
+        classifier = Classifier(
+            input_dim=input_dim + input_dim // 2,
+            classifier_embed_dim=classifier_embed_dim,
+            num_classes=num_total_classes,
+        )
+
+        task_embedding_dim = input_dim // 2
+        model = TaskEmbeddingModel(
+            classifier=classifier,
+            use_relatives=use_relatives,
+            num_tasks=num_tasks,
+            task_embedding_dim=task_embedding_dim,
+        )
+
+    else:
+        classifier = Classifier(
+            input_dim=input_dim,
+            classifier_embed_dim=classifier_embed_dim,
+            num_classes=num_total_classes,
+        )
+        model = Model(
+            classifier=classifier,
+            use_relatives=use_relatives,
+        )
+
     trainer = trainer_func(callbacks=[pytorch_lightning.callbacks.EarlyStopping(monitor="val_loss", patience=10)])
 
     split_dataset = train_dataset.train_test_split(test_size=0.1, seed=42)
@@ -334,105 +429,6 @@ def run_knn_class_experiment(
     }
 
     return results
-
-
-def compute_prototypes(x, y, num_classes):
-    # create prototypes
-    prototypes = []
-    for i in range(num_classes):
-        samples_class_i = x[y == i]
-        prototype = torch.mean(samples_class_i, dim=0)
-        prototypes.append(prototype)
-
-    prototypes = torch.stack(prototypes)
-
-    return prototypes
-
-
-class KNNClassifier(pytorch_lightning.LightningModule):
-    def __init__(self, train_dataset, num_classes, use_relatives):
-        super().__init__()
-        self.train_dataset = train_dataset
-        self.num_classes = num_classes
-        self.accuracy = torchmetrics.Accuracy()
-        self.embedding_key = "relative_embeddings" if use_relatives else "embedding"
-
-    def on_train_epoch_end(self) -> None:
-        prototypes = compute_prototypes(
-            self.train_dataset[self.embedding_key], self.train_dataset["y"], num_classes=self.num_classes
-        )
-        self.register_buffer("prototypes", prototypes)
-
-    def forward(self, x):
-        distances = torch.cdist(x, self.prototypes)
-
-        predictions = torch.argmin(distances, dim=1)
-
-        return predictions
-
-    def training_step(self, *args, **kwargs) -> STEP_OUTPUT:
-        pass
-
-    def test_step(self, batch, batch_idx):
-        assert self.prototypes is not None
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-
-        test_acc = self.accuracy(y_hat, y)
-        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-    def configure_optimizers(self):
-        pass
-
-
-class Model(pytorch_lightning.LightningModule):
-    def __init__(
-        self,
-        classifier: nn.Module,
-        use_relatives: bool,
-    ):
-        super().__init__()
-        self.classifier = classifier
-
-        self.accuracy = torchmetrics.Accuracy()
-
-        self.use_relatives = use_relatives
-        self.embedding_key = "relative_embeddings" if self.use_relatives else "embedding"
-
-    def forward(self, x):
-        return self.classifier(x)
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("train_loss", loss, on_epoch=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("val_loss", loss, on_epoch=True, prog_bar=True)
-
-        val_acc = self.accuracy(y_hat, y)
-        self.log("val_acc", val_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("test_loss", loss, on_epoch=True)
-
-        test_acc = self.accuracy(y_hat, y)
-        self.log("test_acc", test_acc, on_step=False, on_epoch=True, prog_bar=True)
-
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_totally_disjoint")

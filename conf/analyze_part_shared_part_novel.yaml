@@ -1,15 +1,18 @@
 seed_index: 0
 deterministic: False
-results_path: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel
-cka_results_path: ${results_path}/cka_analysis.json
-class_results_path: ${results_path}/class_analysis.json
-clustering_results_path: ${results_path}/clustering_analysis.json
-plots_path: ${results_path}/plots
 
-run_qualitative_analysis: True
-run_cka_analysis: True
-run_classification_analysis: True
-run_clustering_analysis: True
+results_folder: ${oc.env:PROJECT_ROOT}/results/part_shared_part_novel
+results_path:
+  cka: ${results_folder}/cka_analysis.json
+  classification: ${results_folder}/class_analysis.json
+  clustering: ${results_folder}/clustering_analysis.json
+  plots: ${results_folder}/plots
+
+run_analysis:
+  cka: True
+  classification: True
+  clustering: True
+  qualitative: True
 
 has_coarse_label:
   cifar100: True

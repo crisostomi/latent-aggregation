@@ -1,44 +1,46 @@
 import json
 import logging
 import os
-from pathlib import Path
 import random
 from functools import partial
+from pathlib import Path
+from typing import Tuple, Dict, List, Optional, Union
 
 import hydra
 import matplotlib.pyplot as plt
 import omegaconf
 import pytorch_lightning
-from sklearn import metrics
-from sklearn.cluster import KMeans
 import torch
 import torchmetrics
 from datasets import Dataset, concatenate_datasets
-from nn_core.common import PROJECT_ROOT
-from nn_core.common.utils import seed_index_everything
 from omegaconf import DictConfig
 from pytorch_lightning import Trainer, seed_everything
+from sklearn import metrics
+from sklearn.cluster import KMeans
 
 # classification analysis stuff
 from torch import nn
 from torch.nn import functional as F
 
+from nn_core.common import PROJECT_ROOT
+from nn_core.common.utils import seed_index_everything
+
 # Force the execution of __init__.py if this file is executed directly.
 import la  # noqa
+from la.data.my_dataset_dict import MyDatasetDict
 from la.utils.cka import CKA
-from la.utils.class_analysis import Classifier
-from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
-
-
+from la.utils.class_analysis import Classifier, Model, PartSharedPartNovelModel
 from la.utils.relative_analysis import (
+    Reduction,
     compare_merged_original_qualitative,
-    plot_space_grid,
     plot_pairwise_dist,
     plot_self_dist,
-    self_sim_comparison,
-    Reduction,
+    plot_space_grid,
     reduce,
+    self_sim_comparison,
 )
+from la.utils.task_utils import get_shared_samples_ids, map_labels_to_global
+from la.utils.utils import add_tensor_column, save_dict_to_file, standard_normalization
 
 # plt.style.use("dark_background")
 
@@ -46,60 +48,34 @@ from la.utils.relative_analysis import (
 pylogger = logging.getLogger(__name__)
 
 
-def map_labels_to_global(data, num_tasks):
-    for task_ind in range(1, num_tasks + 1):
-        global_to_local_map = data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
-        local_to_global_map = {v: int(k) for k, v in global_to_local_map.items()}
-
-        for mode in ["train", "test"]:
-            data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
-                lambda row: {"y": local_to_global_map[row["y"].item()]},
-                desc="Mapping labels back to global.",
-            )
-
-
 def run(cfg: DictConfig) -> str:
     """ """
     seed_index_everything(cfg)
 
-    all_cka_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_class_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_clustering_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
+    all_results = {}
+
+    analyses = ["cka", "classification", "clustering"]
+
+    for analysis in analyses:
+        all_results[analysis] = {
+            dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
+        }
 
     check_runs_exist(cfg.configurations)
-    # TODO: check different embedding size
+
     for single_cfg in cfg.configurations:
-        cka_results, class_results, clustering_results = single_configuration_experiment(cfg, single_cfg)
+        single_cfg_results = single_configuration_experiment(cfg, single_cfg)
 
-        if cka_results:
-            all_cka_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
-                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
-            ] = cka_results
+        for analysis in analyses:
+            if cfg.run_analysis[analysis]:
+                all_results[analysis][single_cfg.dataset_name]["_".join(single_cfg.model_name)][
+                    f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
+                ] = single_cfg_results[analysis]
 
-        if class_results:
-            all_class_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
-                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
-            ] = class_results
+    for analysis in analyses:
 
-        if clustering_results:
-            all_clustering_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
-                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
-            ] = clustering_results
-
-    if cfg.run_cka_analysis:
-        save_dict_to_file(path=cfg.cka_results_path, content=all_cka_results)
-
-    if cfg.run_classification_analysis:
-        save_dict_to_file(path=cfg.class_results_path, content=all_class_results)
-
-    if cfg.run_clustering_analysis:
-        save_dict_to_file(path=cfg.clustering_results_path, content=all_clustering_results)
+        if cfg.run_analysis[analysis]:
+            save_dict_to_file(path=cfg.results_path[analysis], content=all_results[analysis])
 
 
 def check_runs_exist(configurations):
@@ -224,7 +200,7 @@ def single_configuration_experiment(global_cfg, single_cfg):
             suffix="_shared_classes",
         )
 
-    cka_results, class_results, clustering_results = None, None, None
+    results = {}
 
     if global_cfg.run_clustering_analysis:
         clustering_results_original = compute_clustering_metrics(
@@ -239,13 +215,11 @@ def single_configuration_experiment(global_cfg, single_cfg):
             merged_dataset["relative_embeddings"], space_y=merged_dataset["y"], num_classes=num_total_classes
         )
 
-        clustering_results = {
+        results["clustering"] = {
             "original_abs": clustering_results_original,
             "original_rel": clustering_results_rel,
             "merged": clustering_results_merged,
         }
-
-        pylogger.info(clustering_results)
 
     if global_cfg.run_cka_analysis:
         cka = CKA(mode="linear", device="cuda")
@@ -271,7 +245,7 @@ def single_configuration_experiment(global_cfg, single_cfg):
             original_dataset_shared["relative_embeddings"],
         )
 
-        cka_results = {
+        results["cka"] = {
             "cka_rel_abs": cka_rel_abs,
             "cka_tot": cka_tot.detach().item(),
             "cka_shared": cka_shared.detach().item(),
@@ -299,53 +273,14 @@ def single_configuration_experiment(global_cfg, single_cfg):
 
         class_results_merged = class_exp(merged_dataset, use_relatives=True)
 
-        class_results = {
+        results["class"] = {
             "original_abs": class_results_original_abs,
             "original_rel": class_results_original_rel,
             "jumble_abs": class_results_jumble,
             "merged": class_results_merged,
         }
 
-    return cka_results, class_results, clustering_results
-
-
-def get_shared_samples_ids(data, num_tasks, shared_classes):
-    """
-    Get shared samples indices
-    """
-
-    # Add *shared* column, True for samples belonging to shared classes and False otherwise
-    for task_ind in range(num_tasks + 1):
-        for mode in ["train", "test"]:
-            data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
-                lambda row: {"shared": row["y"].item() in shared_classes},
-                desc="Adding shared column to samples",
-            )
-
-    shared_ids = []
-
-    for task_ind in range(num_tasks + 1):
-        all_ids = data[f"task_{task_ind}_train"]["id"]
-
-        # get the indices of samples having shared to True
-        task_shared_ids = all_ids[data[f"task_{task_ind}_train"]["shared"]].tolist()
-
-        shared_ids.append(sorted(task_shared_ids))
-
-    check_same_shared_ids(num_tasks, shared_ids)
-
-    shared_ids = shared_ids[0]
-
-    return shared_ids
-
-
-def check_same_shared_ids(num_tasks, shared_ids):
-    """
-    Verify that each task has the same shared IDs
-    """
-    for task_i in range(num_tasks + 1):
-        for task_j in range(task_i, num_tasks + 1):
-            assert shared_ids[task_i] == shared_ids[task_j]
+    return results
 
 
 def add_anchor_column(data, num_tasks, anchor_ids):
@@ -357,20 +292,34 @@ def add_anchor_column(data, num_tasks, anchor_ids):
         )
 
 
-def map_to_relative_spaces(data, num_tasks):
+def map_to_relative_spaces(data, num_tasks, normalize=False):
+    """
+
+    :param data:
+    :param num_tasks:
+    """
     for task_ind in range(0, num_tasks + 1):
         task_anchors = data[f"task_{task_ind}_train"]["embedding"][data[f"task_{task_ind}_train"]["anchor"]]
+
+        if normalize:
+            task_anchors = standard_normalization(task_anchors)
+
         norm_anchors = F.normalize(task_anchors, p=2, dim=-1)
 
         for mode in ["train", "test"]:
             task_embeddings = data[f"task_{task_ind}_{mode}"]["embedding"]
 
+            if normalize:
+                task_embeddings = standard_normalization(task_embeddings)
+
             abs_space = F.normalize(task_embeddings, p=2, dim=-1)
 
             rel_space = abs_space @ norm_anchors.T
 
-            data[f"task_{task_ind}_{mode}"] = add_tensor_column(
-                data[f"task_{task_ind}_{mode}"], "relative_embeddings", rel_space
+            data[f"task_{task_ind}_{mode}"] = data[f"task_{task_ind}_{mode}"].map(
+                desc=f"Mapping {mode} task {task_ind} to relative space",
+                function=lambda row, ind: {"relative_embeddings": rel_space[ind]},
+                with_indices=True,
             )
 
 
@@ -380,28 +329,42 @@ def set_torch_format(data, num_tasks, tensor_columns):
             data[f"task_{task_ind}_{mode}"].set_format(type="torch", columns=tensor_columns)
 
 
-def subdivide_shared_and_non_shared(data, num_tasks):
-    shared_samples = {"train": [], "test": []}
-    disjoint_samples = {"train": [], "test": []}
+def subdivide_shared_and_non_shared(
+    data: MyDatasetDict, num_tasks: int
+) -> Tuple[Dict[str, Dataset], Dict[str, Dataset]]:
+    pylogger.info("Subdividing shared and non-shared samples")
+
+    shared_samples = {"train": {}, "test": {}}
+    disjoint_samples = {"train": {}, "test": {}}
 
     for task_ind in range(1, num_tasks + 1):
         for mode in ["train", "test"]:
-            task_shared_samples = data[f"task_{task_ind}_{mode}"].filter(lambda row: row["shared"]).sort("id")
+            task_shared_samples = (
+                data[f"task_{task_ind}_{mode}"]
+                .filter(
+                    lambda row: row["shared"],
+                    desc=f"Selecting shared samples for {mode} task {task_ind}",
+                )
+                .sort("id")
+            )
 
-            task_novel_samples = data[f"task_{task_ind}_{mode}"].filter(lambda row: ~row["shared"])
+            task_novel_samples = data[f"task_{task_ind}_{mode}"].filter(
+                lambda row: ~row["shared"],
+                desc=f"Selecting novel samples for {mode} task {task_ind}",
+            )
 
-            shared_samples[mode].append(task_shared_samples)
-            disjoint_samples[mode].append(task_novel_samples)
+            shared_samples[mode][f"task_{task_ind}"] = task_shared_samples
+            disjoint_samples[mode][f"task_{task_ind}"] = task_novel_samples
 
     # check that novel samples have disjoint ids
     for task_ind in range(0, num_tasks):
         for mode in ["train", "test"]:
-            task_novel_samples = disjoint_samples[mode][task_ind]
+            task_novel_samples = disjoint_samples[mode][f"task_{task_ind + 1}"]
 
             task_novel_ids = task_novel_samples["id"]
 
             for task_j in range(task_ind + 1, num_tasks):
-                other_task_novel_samples = disjoint_samples[mode][task_j]
+                other_task_novel_samples = disjoint_samples[mode][f"task_{task_j + 1}"]
 
                 other_task_novel_ids = other_task_novel_samples["id"]
 
@@ -413,24 +376,31 @@ def subdivide_shared_and_non_shared(data, num_tasks):
     return shared_samples, disjoint_samples
 
 
-def merge_subspaces(shared_samples, novel_samples):
+def merge_subspaces(shared_samples, novel_samples, method="mean"):
     """
     Average the shared samples and then concat the task-specific samples and the shared samples to go to the merged space
 
     # compute the mean of the shared_samples and put them back in the dataset
     # Extract the 'embedding' columns from each dataset
     """
-    shared_rel_embeddings = [dataset["relative_embeddings"] for dataset in shared_samples]
+    shared_rel_embeddings = [dataset["relative_embeddings"] for dataset in shared_samples.values()]
 
-    # Calculate the mean of the embeddings for each sample
-    mean_embeddings = torch.mean(torch.stack(shared_rel_embeddings), dim=0)
-
+    first_dataset = list(shared_samples.values())[0]
     # Create a new dataset with the same features as the original datasets
-    new_features = shared_samples[0].features.copy()
+    new_features = first_dataset.features.copy()
 
     # Replace the 'embedding' column in the new dataset with the mean embeddings
-    new_data = {column: shared_samples[0][column] for column in new_features}
-    new_data["relative_embeddings"] = mean_embeddings.tolist()
+    new_data = {column: first_dataset[column] for column in new_features}
+
+    if method == "mean":
+        # Calculate the mean of the embeddings for each sample
+        merged_embeddings = torch.mean(torch.stack(shared_rel_embeddings), dim=0)
+
+    elif method == "single":
+        # Just take the first task's embeddings
+        merged_embeddings = shared_rel_embeddings[0]
+
+    new_data["relative_embeddings"] = merged_embeddings.tolist()
 
     # Create the new Hugging Face dataset
     shared_dataset = Dataset.from_dict(new_data, features=new_features)
@@ -461,94 +431,6 @@ def compute_clustering_metrics(space, space_y, num_classes):
     return clustering_metrics
 
 
-class Model(pytorch_lightning.LightningModule):
-    def __init__(
-        self,
-        classifier: nn.Module,
-        shared_classes: set,
-        non_shared_classes: set,
-        use_relatives: bool,
-    ):
-        super().__init__()
-        self.classifier = classifier
-
-        shared_classes = torch.Tensor(list(shared_classes)).long()
-        non_shared_classes = torch.Tensor(list(non_shared_classes)).long()
-
-        self.register_buffer("shared_classes", shared_classes)
-        self.register_buffer("non_shared_classes", non_shared_classes)
-
-        self.accuracy = torchmetrics.Accuracy()
-
-        self.use_relatives = use_relatives
-        self.embedding_key = "relative_embeddings" if self.use_relatives else "embedding"
-
-    def forward(self, x):
-        return self.classifier(x)
-
-    def training_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("train_loss", loss, on_step=True, prog_bar=True)
-        return loss
-
-    def validation_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("val_loss", loss, on_step=True, prog_bar=True)
-
-        val_acc = self.accuracy(y_hat, y)
-        self.log("val_acc", val_acc, on_step=True, on_epoch=True, prog_bar=True)
-
-        return loss
-
-    def test_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
-        loss = F.cross_entropy(y_hat, y)
-        self.log("test_loss", loss, on_step=True)
-
-        test_acc = self.accuracy(y_hat, y)
-        self.log("test_acc", test_acc, on_step=True, on_epoch=True, prog_bar=True)
-
-        # compute accuracy for shared classes
-        shared_classes_mask = torch.isin(y, self.shared_classes)
-        shared_classes_y = y[shared_classes_mask]
-
-        y_hat = torch.argmax(y_hat, dim=1)
-        shared_classes_y_hat = y_hat[shared_classes_mask]
-
-        shared_classes_acc = torch.sum(shared_classes_y == shared_classes_y_hat) / len(shared_classes_y)
-        self.log(
-            "test_acc_shared_classes",
-            shared_classes_acc,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
-
-        # compute accuracy for non-shared classes
-        non_shared_classes_mask = torch.isin(y, self.non_shared_classes)
-        non_shared_classes_y = y[non_shared_classes_mask]
-        non_shared_classes_y_hat = y_hat[non_shared_classes_mask]
-
-        non_shared_classes_acc = torch.sum(non_shared_classes_y == non_shared_classes_y_hat) / len(non_shared_classes_y)
-        self.log(
-            "test_acc_non_shared_classes",
-            non_shared_classes_acc,
-            on_step=True,
-            on_epoch=True,
-            prog_bar=True,
-        )
-
-        return loss
-
-    def configure_optimizers(self):
-        return torch.optim.Adam(self.parameters(), lr=1e-3)
-
-
 def run_classification_experiment(
     shared_classes,
     non_shared_classes,
@@ -573,7 +455,7 @@ def run_classification_experiment(
         classifier_embed_dim=global_cfg.classifier_embed_dim,
         num_classes=num_total_classes,
     )
-    model = Model(
+    model = PartSharedPartNovelModel(
         classifier=classifier,
         shared_classes=shared_classes,
         non_shared_classes=non_shared_classes,

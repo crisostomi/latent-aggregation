@@ -45,6 +45,7 @@ class MyDatasetDict(DatasetDict):
         num_proc: Optional[int] = None,
         storage_options: Optional[dict] = None,
     ):
+        Path(dataset_dict_path).mkdir(exist_ok=True, parents=True)
         self.save_metadata(Path(dataset_dict_path) / f"{CUSTOM_METADATA_KEY}.json")
         super().save_to_disk(
             dataset_dict_path,
@@ -78,6 +79,10 @@ class MyDatasetDict(DatasetDict):
         dataset[CUSTOM_METADATA_KEY] = json.load(open(Path(dataset_dict_path) / f"{CUSTOM_METADATA_KEY}.json"))
 
         return dataset
+
+    def select(self, indices):
+        for k, v in self.items():
+            self[k] = v.select(indices)
 
 
 if __name__ == "__main__":

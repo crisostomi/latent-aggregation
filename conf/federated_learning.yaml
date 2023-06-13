@@ -1,0 +1,37 @@
+seed_index: 0
+deterministic: False
+
+results_folder: ${oc.env:PROJECT_ROOT}/results/federated_learning
+results_path:
+  cka: ${results_folder}/cka_analysis.json
+  classification: ${results_folder}/class_analysis.json
+  clustering: ${results_folder}/clustering_analysis.json
+  plots: ${results_folder}/plots
+
+run_analysis:
+  cka: True
+  classification: True
+  clustering: True
+  qualitative: True
+
+has_coarse_label:
+  cifar100: True
+  tiny_imagenet: False
+
+dataset_names:
+  - cifar100
+  - tiny_imagenet
+
+model_names:
+  - vanilla_cnn
+
+num_total_classes:
+  cifar100: 100
+  tiny_imagenet: 200
+
+classifier_embed_dim: 256
+
+dataset_name: cifar100
+model_name: ['vanilla_cnn']
+num_shared_classes: 80
+num_novel_classes: 10

@@ -1,6 +1,8 @@
 import logging
+from pathlib import Path
 
 from nn_core.console_logging import NNRichHandler
+from omegaconf import OmegaConf
 
 # Required workaround because PyTorch Lightning configures the logging on import,
 # thus the logging configuration defined in the __init__.py must be called before
@@ -11,6 +13,15 @@ lightning_logger = logging.getLogger("pytorch_lightning")
 for handler in lightning_logger.handlers[:]:
     lightning_logger.removeHandler(handler)
 lightning_logger.propagate = True
+
+
+def decode_path(path):
+    path = Path(path)
+    path.mkdir(parents=True, exist_ok=True)
+    return path
+
+
+OmegaConf.register_new_resolver("path", lambda path: decode_path(path))
 
 FORMAT = "%(message)s"
 logging.basicConfig(

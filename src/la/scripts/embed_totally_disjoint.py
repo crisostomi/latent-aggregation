@@ -27,7 +27,13 @@ import la  # noqa
 from la.data.datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
 from la.pl_modules.pl_module import DataAugmentation
-from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
+from la.utils.utils import (
+    ToFloatRange,
+    embed_task_samples,
+    get_checkpoint_callback,
+    build_callbacks,
+    standard_normalization,
+)
 from la.utils.utils import scatter_mean
 
 disable_caching()
@@ -61,7 +67,7 @@ def run(cfg: DictConfig) -> str:
 
         pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
 
-        model = get_task_model(datamodule, task_ind)
+        model = get_task_model(datamodule.data, task_ind)
 
         datamodule.task_ind = task_ind
         datamodule.transform_func = model.transform_func
@@ -81,13 +87,13 @@ def run(cfg: DictConfig) -> str:
 
     num_closest_anchors = 10
 
-    assignments = compute_assignments_cross_space_anchor_heuristic(
-        datamodule,
-        model_ind=1,
-        num_tasks=num_tasks,
-        label_to_task=label_to_task,
-        num_closest_anchors=num_closest_anchors,
-    )
+    # assignments = compute_assignments_cross_space_anchor_heuristic(
+    #     datamodule,
+    #     model_ind=1,
+    #     num_tasks=num_tasks,
+    #     label_to_task=label_to_task,
+    #     num_closest_anchors=num_closest_anchors,
+    # )
 
     # assignments = compute_assignments_anchor_heuristic(datamodule, model_ind=1, num_tasks=num_tasks, num_closest_anchors=num_closest_anchors, label_to_task=label_to_task)
 
@@ -95,19 +101,18 @@ def run(cfg: DictConfig) -> str:
 
     # assignments = compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives=False)
 
+    assignments = compute_perfect_assignment(datamodule, num_tasks)
+
     task_embeds = compute_embeddings(datamodule, assignments, num_tasks)
 
     store_task_specific_test_embeds(datamodule, task_embeds, num_tasks)
 
-    output_path = Path(cfg.nn.output_path + "_embedded")
-    output_path.mkdir(parents=True, exist_ok=True)
-
-    datamodule.data.save_to_disk(output_path)
+    datamodule.data.save_to_disk(cfg.nn.embedding_path)
 
 
-def get_task_model(datamodule, task_ind):
-    model_path = datamodule.data["metadata"]["task_embedders"][f"task_{task_ind}"]["path"]
-    model_class = locate(datamodule.data["metadata"]["task_embedders"][f"task_{task_ind}"]["class"])
+def get_task_model(data, task_ind):
+    model_path = data["metadata"]["task_embedders"][f"task_{task_ind}"]["path"]
+    model_class = locate(data["metadata"]["task_embedders"][f"task_{task_ind}"]["class"])
 
     model = load_model(model_class, checkpoint_path=Path(model_path + ".zip"))
     model.eval().cuda()
@@ -117,9 +122,10 @@ def get_task_model(datamodule, task_ind):
 def compute_assignments_anchor_heuristic(datamodule, model_ind, num_tasks, num_closest_anchors, label_to_task):
 
     anchors = datamodule.data[f"task_{model_ind}_anchors"]
-    norm_anchors = F.normalize(anchors["embedding"], p=2, dim=-1).cuda()
+    norm_anchors = standard_normalization(anchors["embedding"])
+    norm_anchors = F.normalize(norm_anchors, p=2, dim=-1).cuda()
 
-    model = get_task_model(datamodule, model_ind)
+    model = get_task_model(datamodule.data, model_ind)
 
     accuracy = Accuracy().to("cuda")
 
@@ -142,7 +148,9 @@ def compute_assignments_anchor_heuristic(datamodule, model_ind, num_tasks, num_c
                 x = batch["x"].to("cuda")
 
                 embeds = model(x)["embeds"]
-                norm_embeds = F.normalize(embeds, p=2, dim=-1)
+
+                norm_embeds = standard_normalization(embeds)
+                norm_embeds = F.normalize(norm_embeds, p=2, dim=-1)
 
                 relative = norm_embeds @ norm_anchors.T
                 closest_anchors = torch.topk(relative, dim=-1, k=num_closest_anchors)
@@ -178,7 +186,9 @@ def compute_assignments_anchor_heuristic(datamodule, model_ind, num_tasks, num_c
                 task_assignments.append(nearest_models)
 
         # num_samples_task
-        assignments[f"task_{task_ind}"] = torch.cat(task_assignments, dim=0)
+        assignments[f"task_{task_ind}"] = (
+            torch.cat(task_assignments, dim=0) + 1
+        )  # +1 because the subtask indices start from 1
 
     pylogger.info(f"Accuracy of the task assignment using the similarity wrt the anchors: {accuracy.compute().item()}")
 
@@ -212,17 +222,22 @@ def compute_assignments_cross_space_anchor_heuristic(
 
                 similarity_wrt_tasks_anchors = []
                 for model_ind in range(1, num_tasks + 1):
-                    model = get_task_model(datamodule, model_ind)
+                    model = get_task_model(datamodule.data, model_ind)
 
                     embeds = model(x)["embeds"]
 
                     anchors = datamodule.data[f"task_{model_ind}_anchors"]
-                    norm_anchors = F.normalize(anchors["embedding"].cuda(), p=2, dim=-1)
+                    norm_anchors = standard_normalization(anchors["embedding"].cuda())
+
+                    norm_anchors = F.normalize(norm_anchors, p=2, dim=-1)
 
                     anchor_labels = anchors["y"].cuda()
 
+                    embeds = standard_normalization(embeds)
+                    embeds = F.normalize(embeds, p=2, dim=-1)
+
                     # (batch_size, num_anchors)
-                    rel_embeds = F.normalize(embeds, p=2, dim=-1) @ norm_anchors.T
+                    rel_embeds = embeds @ norm_anchors.T
 
                     # (batch_size, num_classes)
 
@@ -287,7 +302,7 @@ def compute_assignments_cross_space_anchor_heuristic(
     return assignments
 
 
-def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives):
+def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives, top_k_similarities):
     """ """
     accuracy = Accuracy().to("cuda")
     batch_size = 10
@@ -313,24 +328,37 @@ def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives):
 
                     train_embeddings = datamodule.data[f"task_{model_ind}_train"]["embedding"].cuda()
 
-                    model = get_task_model(datamodule, model_ind)
+                    model = get_task_model(datamodule.data, model_ind)
 
                     embeds = model(x)["embeds"]
 
                     if use_relatives:
                         anchors = datamodule.data[f"task_{model_ind}_anchors"]["embedding"].cuda()
 
-                        norm_anchors = F.normalize(anchors, p=2, dim=-1)
+                        norm_anchors = standard_normalization(anchors)
+                        norm_anchors = F.normalize(norm_anchors, p=2, dim=-1)
 
-                        train_embeddings = F.normalize(train_embeddings, p=2, dim=-1) @ norm_anchors.T
+                        norm_train_embeddings = standard_normalization(train_embeddings)
+                        norm_train_embeddings = F.normalize(norm_train_embeddings, p=2, dim=-1)
 
-                        embeds = F.normalize(embeds, p=2, dim=-1) @ norm_anchors.T
+                        rel_train_embeddings = norm_train_embeddings @ norm_anchors.T
 
-                    # shape (batch_size, num_train_embeddings)
-                    similarities = cosine_similarity(embeds.unsqueeze(1), train_embeddings.unsqueeze(0), dim=2)
+                        norm_embeds = standard_normalization(embeds)
+                        norm_embeds = F.normalize(norm_embeds, p=2, dim=-1)
+
+                        rel_embeds = norm_embeds @ norm_anchors.T
+
+                        similarities = rel_embeds @ rel_train_embeddings
+
+                    else:
+                        # shape (batch_size, num_train_embeddings)
+                        similarities = cosine_similarity(embeds.unsqueeze(1), train_embeddings.unsqueeze(0), dim=2)
+
+                    # only consider top K most similar embeddings
+                    similarities = torch.topk(similarities, dim=1, k=top_k_similarities).values
+                    similarities = similarities.mean(dim=1)
 
                     # shape (batch_size, 1)
-                    similarities = similarities.mean(dim=1)
                     model_similarities.append(similarities)
 
                 # (batch_size, num_models)
@@ -360,6 +388,19 @@ def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives):
     return assignments
 
 
+def compute_perfect_assignment(datamodule, num_tasks):
+    assignments = {f"task_{i}": None for i in range(1, num_tasks + 1)}
+
+    for task_ind in range(1, num_tasks + 1):
+
+        num_task_samples = len(datamodule.data[f"task_{task_ind}_test"])
+        ground_truth_task_ind = torch.full(size=(num_task_samples,), fill_value=task_ind)
+
+        assignments[f"task_{task_ind}"] = ground_truth_task_ind
+
+    return assignments
+
+
 def compute_embeddings(datamodule, assignments, num_tasks):
 
     batch_size = 1
@@ -379,8 +420,8 @@ def compute_embeddings(datamodule, assignments, num_tasks):
                 ids = sample["id"][0]
                 # coarse_labels = batch["coarse_label"]
 
-                model_ind = assignments[f"task_{task_ind}"][sample_ind] + 1
-                model = get_task_model(datamodule, model_ind)
+                model_ind = assignments[f"task_{task_ind}"][sample_ind]
+                model = get_task_model(datamodule.data, model_ind)
 
                 embeds = model(x)["embeds"][0]
 

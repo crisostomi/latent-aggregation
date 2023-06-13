@@ -15,7 +15,7 @@ class CNN(nn.Module):
         **kwargs
     ):
         super(CNN, self).__init__()
-        self.model = nn.Sequential(
+        self.backbone = nn.Sequential(
             nn.Conv2d(
                 in_channels=3,
                 out_channels=num_interm_channels,
@@ -46,7 +46,7 @@ class CNN(nn.Module):
     def forward(self, x):
         # (batch_size, num_channels, width, height)
 
-        x = self.model(x)
+        x = self.backbone(x)
 
         # (batch_size, 32 * 8 * 8)
         x = x.reshape(x.size(0), -1)

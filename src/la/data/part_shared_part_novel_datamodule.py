@@ -2,7 +2,7 @@ import logging
 from functools import cached_property, partial
 from pathlib import Path
 from typing import List, Mapping, Optional, Union
-
+import torchvision
 import pytorch_lightning as pl
 from nn_core.nn_types import Split
 from omegaconf import DictConfig
@@ -11,8 +11,9 @@ from torch.utils.data import DataLoader
 from torch.utils.data.dataloader import default_collate
 from datasets import Dataset, concatenate_datasets
 from la.data.datamodule import MyDataModule
+from datasets.fingerprint import Hasher
 
-from la.utils.utils import MyDatasetDict
+from la.data.my_dataset_dict import MyDatasetDict
 
 pylogger = logging.getLogger(__name__)
 
@@ -25,6 +26,7 @@ class PartSharedPartNovelDatamodule(MyDataModule):
         gpus: Optional[Union[List[int], str, int]],
         data_path: Path,
         only_use_sample_num: int = -1,
+        keep_img_column=False,
     ):
         super().__init__(
             num_workers=num_workers,
@@ -32,6 +34,7 @@ class PartSharedPartNovelDatamodule(MyDataModule):
             gpus=gpus,
             data_path=data_path,
             only_use_sample_num=only_use_sample_num,
+            keep_img_column=keep_img_column,
         )
 
         self.seen_tasks = set()
@@ -46,7 +49,7 @@ class PartSharedPartNovelDatamodule(MyDataModule):
         self.shuffle_train = True
 
         map_params = {
-            "function": lambda x: {"x": self.transform_func(x["x"])},
+            "function": lambda x: {"x": self.transform_func(x["img"])},
             "writer_batch_size": 100,
             "num_proc": 1,
         }
