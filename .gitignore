@@ -229,3 +229,4 @@ results/
 exclude_rsync.txt
 .vscode/
 notebooks/lightning_logs/
+/matrioska_learning

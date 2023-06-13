@@ -23,7 +23,7 @@ from tqdm import tqdm
 from la.data.datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
 from la.utils.io_utils import save_dataset_to_disk
-from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
+from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
 
 disable_caching()
 pylogger = logging.getLogger(__name__)
@@ -55,18 +55,19 @@ def run(cfg: DictConfig) -> str:
 
     num_tasks = datamodule.data["metadata"]["num_tasks"]
 
+    assert num_tasks + 1 == len(cfg.nn.multi_architectures)
+
     for task_ind in range(num_tasks + 1):
         seed_index_everything(cfg.train)
 
-        pylogger.info(f"Instantiating <{cfg.nn.model['_target_']}>")
+        pylogger.info(f"Instantiating <{cfg.nn.model[cfg.nn.multi_architectures[task_ind]]}>")
 
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
-            cfg.nn.model,
+            cfg.nn.model[cfg.nn.multi_architectures[task_ind]],
             _recursive_=False,
             num_classes=len(task_class_vocab),
-            model=cfg.nn.model.model,
             input_dim=datamodule.img_size,
         )
 
@@ -117,46 +118,11 @@ def run(cfg: DictConfig) -> str:
         datamodule.data[f"task_{task_ind}_train"] = embedded_samples["train"]
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
 
-    save_dataset_to_disk(datamodule.data, cfg.nn.output_path)
+    all_models = "_".join(list(cfg.nn.multi_architectures))
+    output_path = cfg.nn.data_path + "_" + all_models
+    save_dataset_to_disk(datamodule.data, output_path)
 
     return logger.run_dir
-
-
-def embed_task_samples(datamodule, model, task_ind, modes) -> Dict:
-    datamodule.shuffle_train = False
-
-    embeddings = {mode: None for mode in modes}
-
-    for mode in modes:
-        mode_embeddings = []
-
-        for batch in tqdm(datamodule.dataloader(mode), desc=f"Embedding {mode} samples"):
-            x = batch["x"].to("cuda")
-            mode_embeddings.extend(model(x)["embeds"].detach())
-
-        embeddings[mode] = torch.stack(mode_embeddings)
-
-    embedded_samples = {mode: None for mode in modes}
-
-    map_params = {
-        "with_indices": True,
-        "batched": True,
-        "batch_size": 128,
-        "num_proc": 1,
-        "writer_batch_size": 10,
-    }
-
-    for mode in modes:
-        embedded_samples[mode] = datamodule.data[f"task_{task_ind}_{mode}"].map(
-            function=lambda x, ind: {
-                "embedding": embeddings[mode][ind],
-            },
-            desc=f"Storing embedded {mode} samples",
-            **map_params,
-            remove_columns=["x"],
-        )
-
-    return embedded_samples
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="run_part_shared_part_novel")

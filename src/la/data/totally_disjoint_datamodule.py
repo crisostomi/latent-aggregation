@@ -13,7 +13,7 @@ from datasets import Dataset, concatenate_datasets
 from la.data.datamodule import MyDataModule, collate_fn
 
 from la.prelim_exp.prelim_exp_dataset import MyDataset
-from la.utils.utils import MyDatasetDict
+from la.data.my_dataset_dict import MyDatasetDict
 
 pylogger = logging.getLogger(__name__)
 
@@ -51,7 +51,7 @@ class TotallyDisjointDatamodule(MyDataModule):
         self.shuffle_train = True
 
         map_params = {
-            "function": lambda x: {"x": self.transform_func(x["x"])},
+            "function": lambda x: {"x": self.transform_func(x["img"])},
             "writer_batch_size": 100,
             "num_proc": 1,
         }
@@ -63,7 +63,17 @@ class TotallyDisjointDatamodule(MyDataModule):
                 desc=f"Transforming task {self.task_ind} {mode} samples", **map_params
             )
 
-            self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y"])
+            self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y", "id"])
             self.datasets[mode][self.task_ind] = self.data[f"task_{self.task_ind}_{mode}"]
 
         self.seen_tasks.add(self.task_ind)
+
+    def anchor_dataloader(self) -> DataLoader:
+        return DataLoader(
+            self.datasets["anchors"][self.task_ind],
+            shuffle=False,
+            batch_size=self.batch_size.train,
+            num_workers=self.num_workers.train,
+            pin_memory=self.pin_memory,
+            collate_fn=partial(collate_fn, split="anchors", metadata=self.metadata),
+        )

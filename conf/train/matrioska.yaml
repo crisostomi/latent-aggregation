@@ -6,12 +6,11 @@ trainer:
   fast_dev_run: False
   gpus: 1
   precision: 32
-  max_epochs: 250 # 250
+  max_epochs: 250
   accumulate_grad_batches: 1
   num_sanity_val_steps: 2
   gradient_clip_val: 10.0
   val_check_interval: 1.0
-  check_val_every_n_epoch: 1
   deterministic: ${train.deterministic}
 
 restore:
@@ -19,12 +18,12 @@ restore:
   mode: null # null, finetune, hotstart, continue
 
 monitor:
-  metric: 'loss/val'
-  mode: 'min'
+  metric: 'acc/val'
+  mode: 'max'
 
 callbacks:
   - _target_: pytorch_lightning.callbacks.EarlyStopping
-    patience: 5 # it actually means K * n, where K is the patience and n is from check_val_every_n_epochs
+    patience: 2
     verbose: False
     monitor: ${train.monitor.metric}
     mode: ${train.monitor.mode}
@@ -40,7 +39,7 @@ callbacks:
     log_momentum: False
 
   - _target_: pytorch_lightning.callbacks.progress.tqdm_progress.TQDMProgressBar
-    refresh_rate: 1000
+    refresh_rate: 20
 
 logging:
   upload:

@@ -73,22 +73,22 @@ def run(cfg: DictConfig) -> str:
     }
 
     check_runs_exist(cfg.configurations)
-
+    # TODO: check different embedding size
     for single_cfg in cfg.configurations:
         cka_results, class_results, clustering_results = single_configuration_experiment(cfg, single_cfg)
 
         if cka_results:
-            all_cka_results[single_cfg.dataset_name][single_cfg.model_name][
+            all_cka_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
                 f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
             ] = cka_results
 
         if class_results:
-            all_class_results[single_cfg.dataset_name][single_cfg.model_name][
+            all_class_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
                 f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
             ] = class_results
 
         if clustering_results:
-            all_clustering_results[single_cfg.dataset_name][single_cfg.model_name][
+            all_clustering_results[single_cfg.dataset_name]["_".join(single_cfg.model_name)][
                 f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
             ] = clustering_results
 
@@ -108,7 +108,8 @@ def check_runs_exist(configurations):
             single_cfg.dataset_name,
             single_cfg.num_shared_classes,
             single_cfg.num_novel_classes,
-            single_cfg.model_name,
+            # single_cfg.model_name,
+            "_".join(single_cfg.model_name),
         )
 
         dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/part_shared_part_novel/S{num_shared_classes}_N{num_novel_classes}_{model_name}"
@@ -121,7 +122,8 @@ def single_configuration_experiment(global_cfg, single_cfg):
         single_cfg.dataset_name,
         single_cfg.num_shared_classes,
         single_cfg.num_novel_classes,
-        single_cfg.model_name,
+        # single_cfg.model_name,
+        "_".join(single_cfg.model_name),
     )
 
     has_coarse_label = global_cfg.has_coarse_label[dataset_name]
@@ -248,7 +250,14 @@ def single_configuration_experiment(global_cfg, single_cfg):
     if global_cfg.run_cka_analysis:
         cka = CKA(mode="linear", device="cuda")
 
-        cka_rel_abs = cka(merged_dataset["relative_embeddings"], merged_dataset["embedding"])
+        cka_rel_abs = None
+        try:
+            cka_rel_abs = cka(original_dataset["relative_embeddings"], torch.stack(original_dataset["embedding"]))
+            cka_rel_abs.detach().item()
+        except:
+            pylogger.info(
+                "CKA between relative and absolute embeddings not possible when using different architectures"
+            )
 
         cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
 
@@ -263,7 +272,7 @@ def single_configuration_experiment(global_cfg, single_cfg):
         )
 
         cka_results = {
-            "cka_rel_abs": cka_rel_abs.detach().item(),
+            "cka_rel_abs": cka_rel_abs,
             "cka_tot": cka_tot.detach().item(),
             "cka_shared": cka_shared.detach().item(),
             "cka_non_shared": cka_nonshared.detach().item(),

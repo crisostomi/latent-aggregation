@@ -1,6 +1,7 @@
 from collections import namedtuple
 from pathlib import Path
-from la.utils.utils import MyDatasetDict, convert_to_rgb
+from la.utils.utils import convert_to_rgb
+from la.data.my_dataset_dict import MyDatasetDict
 from datasets import (
     load_dataset,
     DatasetDict,
@@ -54,20 +55,16 @@ def save_dataset_to_disk(dataset, output_path):
 
 
 def preprocess_dataset(dataset, cfg):
-    dataset = dataset.map(
-        lambda x: {cfg.label_key: x[cfg.dataset.label_key]},
-        remove_columns=[cfg.dataset.label_key],
-        desc="Standardizing label key",
-    )
-    dataset = dataset.map(
-        lambda x: {cfg.image_key: x[cfg.dataset.image_key]},
-        batched=True,
-        remove_columns=[cfg.dataset.image_key],
-        desc="Standardizing image key",
-    )
+    dataset = dataset.rename_column(cfg.dataset.label_key, cfg.label_key)
+    dataset = dataset.rename_column(cfg.dataset.image_key, cfg.image_key)
 
     # in case some images are not RGB, convert them to RGB
-    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x["x"])}, desc="Converting to RGB")
+    dataset = dataset.map(lambda x: {cfg.image_key: convert_to_rgb(x[cfg.image_key])}, desc="Converting to RGB")
+    dataset.set_format(type="numpy", columns=[cfg.image_key, cfg.label_key])
+
+    shape = dataset["train"][0]["img"].shape
+
+    dataset = dataset.cast_column("img", Array3D(dtype="uint8", shape=shape, id=None))
 
     return dataset
 

@@ -8,7 +8,7 @@ model:
     input_dim: ???
     num_interm_channels: 16
     num_out_channels: 32
-    embedding_dim: 256
+    embedding_dim: 128 # 256
 
 optimizer:
   _target_: torch.optim.Adam
