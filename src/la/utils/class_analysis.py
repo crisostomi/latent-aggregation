@@ -88,8 +88,9 @@ class PartSharedPartNovelModel(Model):
         self.accuracy = torchmetrics.Accuracy()
 
     def test_step(self, batch, batch_idx):
-        x, y = batch[self.embedding_key], batch["y"]
-        y_hat = self(x)
+        y_hat = self(batch)
+        y = batch["y"]
+
         loss = F.cross_entropy(y_hat, y)
         self.log("test_loss", loss, on_step=True)
 
@@ -244,22 +245,9 @@ class TaskEmbeddingModel(Model):
         self.task_embedding = nn.Embedding(num_tasks, task_embedding_dim)
 
     def forward(self, batch):
-
         x, task_ids = batch[self.embedding_key], batch["task"]
 
         task_embedding = self.task_embedding(task_ids - 1)
         x = torch.cat([x, task_embedding], dim=1)
 
         return self.classifier(x)
-
-
-def compute_prototypes(x, y, num_classes):
-    prototypes = []
-    for i in range(num_classes):
-        samples_class_i = x[y == i]
-        prototype = torch.mean(samples_class_i, dim=0)
-        prototypes.append(prototype)
-
-    prototypes = torch.stack(prototypes)
-
-    return prototypes

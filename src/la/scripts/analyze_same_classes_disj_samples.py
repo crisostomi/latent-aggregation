@@ -27,7 +27,8 @@ import la  # noqa
 from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier, KNNClassifier, Model
 from la.utils.relative_analysis import compare_merged_original_qualitative
-from la.utils.utils import MyDatasetDict, add_tensor_column, save_dict_to_file
+from la.data.my_dataset_dict import MyDatasetDict
+from la.utils.utils import add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
 
 from la.utils.class_analysis import Classifier
@@ -167,7 +168,9 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     # qualitative comparison absolute -- merged
     plots_path = Path(global_cfg.plots_path) / dataset_name / model_name
 
-    compare_merged_original_qualitative(original_dataset_test, merged_dataset_test, has_coarse_label, plots_path)
+    compare_merged_original_qualitative(
+        original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, num_total_classes, cfg=global_cfg
+    )
 
     # CKA analysis
 
@@ -209,6 +212,15 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         classifier_embed_dim=global_cfg.classifier_embed_dim,
     )
 
+    jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
+    jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
+    class_results_jumble = class_exp(
+        train_dataset=jumble_train,
+        test_dataset=jumble_test,
+        use_relatives=False,
+        input_dim=original_dataset_train["embedding"].shape[1],
+    )
+
     class_results_original_abs = class_exp(
         train_dataset=original_dataset_train,
         test_dataset=original_dataset_test,
@@ -234,6 +246,7 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         "original_abs": class_results_original_abs,
         "original_rel": class_results_original_rel,
         "merged": class_results_merged,
+        "jumble": class_results_jumble,
     }
 
     return cka_results, class_results, knn_results
@@ -334,19 +347,6 @@ def run_knn_class_experiment(
     }
 
     return results
-
-
-def compute_prototypes(x, y, num_classes):
-    # create prototypes
-    prototypes = []
-    for i in range(num_classes):
-        samples_class_i = x[y == i]
-        prototype = torch.mean(samples_class_i, dim=0)
-        prototypes.append(prototype)
-
-    prototypes = torch.stack(prototypes)
-
-    return prototypes
 
 
 @hydra.main(config_path=str(PROJECT_ROOT / "conf"), config_name="analyze_same_classes_disj_samples")

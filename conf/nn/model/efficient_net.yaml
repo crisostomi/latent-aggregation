@@ -24,6 +24,7 @@ optimizer:
 transform_func:
   _target_: torchvision.transforms.Compose
   transforms:
+    - _target_: torchvision.transforms.ToPILImage
     - _target_: torchvision.transforms.Resize
       size: 256
     - _target_: torchvision.transforms.CenterCrop

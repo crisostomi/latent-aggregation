@@ -113,6 +113,9 @@ def run(cfg: DictConfig) -> str:
         os.makedirs(cfg.nn.output_path)
 
     datamodule.data["metadata"]["task_embedders"] = task_embedders
+    for dataset in datamodule.data:
+        if "x" in datamodule.data[dataset].column_names:
+            datamodule.data[dataset] = datamodule.data[dataset].remove_columns(["x"])
 
     datamodule.data.save_to_disk(cfg.nn.output_path)
 

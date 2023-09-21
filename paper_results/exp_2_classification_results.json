@@ -1,0 +1,66 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "original_abs": {
+                "total_acc": 0.7038000226020813
+            },
+            "original_rel": {
+                "total_acc": 0.6909999847412109
+            },
+            "merged": {
+                "total_acc": 0.6977999806404114
+            },
+            "jumble": {
+                "total_acc": 0.7046999931335449
+            }
+        },
+        "from_scratch_cnn": {
+            "original_abs": {
+                "total_acc": 0.44530001282691956
+            },
+            "original_rel": {
+                "total_acc": 0.4246000051498413
+            },
+            "merged": {
+                "total_acc": 0.4034000039100647
+            },
+            "jumble": {
+                "total_acc": 0.40639999508857727
+            }
+        },
+        "resnet": {},
+        "shake_resnet": {}
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "original_abs": {
+                "total_acc": 0.6901000142097473
+            },
+            "original_rel": {
+                "total_acc": 0.6685000061988831
+            },
+            "merged": {
+                "total_acc": 0.66839998960495
+            },
+            "jumble": {
+                "total_acc": 0.6823999881744385
+            }
+        },
+        "from_scratch_cnn": {
+            "original_abs": {
+                "total_acc": 0.27309998869895935
+            },
+            "original_rel": {
+                "total_acc": 0.26570001244544983
+            },
+            "merged": {
+                "total_acc": 0.2578999996185303
+            },
+            "jumble": {
+                "total_acc": 0.2502000033855438
+            }
+        },
+        "resnet": {},
+        "shake_resnet": {}
+    }
+}

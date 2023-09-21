@@ -53,7 +53,7 @@ class SameClassesDisjSamplesDatamodule(MyDataModule):
         self.shuffle_train = True
 
         map_params = {
-            "function": lambda x: {"x": self.transform_func(x["x"])},
+            "function": lambda x: {"x": self.transform_func(x["img"])},
             "writer_batch_size": 100,
             "num_proc": 1,
         }

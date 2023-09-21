@@ -124,6 +124,8 @@ class MyDataModule(pl.LightningDataModule):
         self.transform_func = None  # will be set in setup
         self.shuffle_train = True
 
+        self.has_coarse_label = "coarse_label" in self.data[f"task_{0}_test"].features
+
         self.only_use_sample_num = only_use_sample_num
 
         if only_use_sample_num >= 0:

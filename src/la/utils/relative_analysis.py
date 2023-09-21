@@ -15,6 +15,9 @@ from sklearn.manifold import TSNE
 from torch import cosine_similarity
 from torch.nn.functional import mse_loss, pairwise_distance
 from torchmetrics.functional import pearson_corrcoef, spearman_corrcoef
+from nn_core.common.utils import seed_index_everything
+
+from la.utils.utils import compute_prototypes
 
 CMAP = "jet"
 
@@ -22,9 +25,20 @@ pylogger = logging.getLogger(__name__)
 
 
 def compare_merged_original_qualitative(
-    original_dataset, merged_dataset, has_coarse_label, plots_path: Path, prefix="", suffix=""
+    original_dataset,
+    merged_dataset,
+    has_coarse_label,
+    num_classes,
+    plots_path: Path,
+    prefix="",
+    suffix="",
+    cfg=None,
+    precomputed_pca=None,
 ):
     pylogger.info("Running the qualitative analysis")
+    pylogger.info(precomputed_pca)
+
+    seed_index_everything(cfg)
 
     plots_path.mkdir(parents=True, exist_ok=True)
 
@@ -77,7 +91,7 @@ def compare_merged_original_qualitative(
         fig = plot_space_grid(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
         fig.savefig(plots_path / f"{prefix}space_grid_coarse{suffix}.png")
 
-    reductions = [Reduction.INDEPENDENT_PCA, Reduction.TSNE]
+    reductions = [Reduction.INDEPENDENT_PCA, Reduction.TSNE, Reduction.SHARED_PCA]
     for reduction in reductions:
         y_header = ["Original Space", "Aggregated Space"]
         x_header = reduction.upper()
@@ -88,6 +102,59 @@ def compare_merged_original_qualitative(
 
         fig = plot_spaces(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_labels_sorted)
         fig.savefig(plots_path / f"{prefix}{reduction.upper()}{suffix}.png")
+
+        if has_coarse_label:
+            fig = plot_spaces(x_header=x_header, y_header=y_header, spaces=spaces, c=subsample_coarse_labels_sorted)
+            fig.savefig(plots_path / f"{prefix}{reduction.upper()}_coarse{suffix}.png")
+
+    pylogger.info("Finished qualitative analysis")
+    pylogger.info(precomputed_pca)
+    return precomputed_pca
+
+
+def plot_prototypes(
+    original_dataset,
+    merged_dataset,
+    orig_dataset_embed_key,
+    merged_dataset_embed_key,
+    reduction,
+    plots_path,
+    prefix,
+    suffix,
+    cfg,
+):
+    seed_index_everything(cfg)
+
+    merged_space = merged_dataset[merged_dataset_embed_key]
+    original_space = original_dataset[orig_dataset_embed_key]
+
+    original_space_coarse_labels = original_dataset["coarse_label"]
+    merged_space_coarse_labels = torch.tensor(merged_dataset["coarse_label"])
+
+    num_coarse_classes = torch.max(original_space_coarse_labels).item() + 1
+    orig_prototypes = compute_prototypes(original_space, original_space_coarse_labels, num_classes=num_coarse_classes)
+    merged_prototypes = compute_prototypes(merged_space, merged_space_coarse_labels, num_classes=num_coarse_classes)
+
+    spaces = [
+        *reduce(
+            space1=orig_prototypes,
+            space2=merged_prototypes,
+            reduction=reduction,
+            perplexity=num_coarse_classes - 1,
+        )
+    ]
+
+    y_header = ["Original Space", "Aggregated Space"]
+    figures = plot_spaces(
+        x_header=reduction.upper(),
+        y_header=y_header,
+        spaces=spaces,
+        c=torch.arange(num_coarse_classes),
+        return_separated=True,
+    )
+
+    figures[0].savefig(plots_path / f"{prefix}{reduction.upper()}_original_prototypes{suffix}.png")
+    figures[1].savefig(plots_path / f"{prefix}{reduction.upper()}_aggregated_prototypes{suffix}.png")
 
 
 class DistMethod(StrEnum):
@@ -270,7 +337,14 @@ def plot_space_grid(
     return fig
 
 
-def plot_spaces(x_header: str, y_header: Sequence[str], spaces: Sequence[Sequence[np.ndarray]], c=None, cmap=CMAP):
+def plot_spaces(
+    x_header: str,
+    y_header: Sequence[str],
+    spaces: Sequence[Sequence[np.ndarray]],
+    c=None,
+    cmap=CMAP,
+    return_separated=False,
+):
     """
 
     Args:
@@ -285,32 +359,67 @@ def plot_spaces(x_header: str, y_header: Sequence[str], spaces: Sequence[Sequenc
     n_rows = 1
     n_cols = len(spaces)
 
-    fig, axs = plt.subplots(nrows=1, ncols=n_cols, figsize=(n_cols * 5, n_rows * 5))
+    if return_separated:
+        figures = []
 
-    axs[0].set_ylabel(x_header, rotation=90, size="xx-large")
+        for idx, space in enumerate(spaces):
+            fig, ax = plt.subplots(figsize=(5, 5))
 
-    for y, col in zip(y_header, axs):
-        col.set_title(y, size="xx-large")
+            # Add title and label
+            ax.set_title(y_header[idx], size="xx-large")
+            if idx == 0:  # Only set the y label for the first figure
+                ax.set_ylabel(x_header, rotation=90, size="xx-large")
 
-    for j in range(n_cols):
-        space = spaces[j]
-        assert space.shape[1] == 2
-        x = space[:, 0]
-        y = space[:, 1]
-        axs[j].scatter(x=x, y=y, c=c, cmap=cmap)
+            assert space.shape[1] == 2
+            x = space[:, 0]
+            y = space[:, 1]
+            ax.scatter(x=x, y=y, c=c, cmap=cmap)
 
-    plt.close()
+            plt.close()
+            figures.append(fig)
+
+        return figures
+
+    else:
+        fig, axs = plt.subplots(nrows=1, ncols=n_cols, figsize=(n_cols * 5, n_rows * 5))
+
+        axs[0].set_ylabel(x_header, rotation=90, size="xx-large")
+
+        for y, col in zip(y_header, axs):
+            col.set_title(y, size="xx-large")
+
+        for j in range(n_cols):
+            space = spaces[j]
+            assert space.shape[1] == 2
+            x = space[:, 0]
+            y = space[:, 1]
+            axs[j].scatter(x=x, y=y, c=c, cmap=cmap)
+
+        plt.close()
+
     return fig
 
 
-def reduce(space1: torch.Tensor, space2: torch.Tensor, reduction: Reduction, seed: int = 42, perplexity=30):
+def reduce(
+    space1: torch.Tensor,
+    space2: torch.Tensor,
+    reduction: Reduction,
+    seed: int = 42,
+    perplexity=30,
+    precomputed_pca=None,
+):
     if reduction == Reduction.INDEPENDENT_PCA:
         space1 = PCA(2, random_state=seed).fit_transform(space1)
         space2 = PCA(2, random_state=seed).fit_transform(space2)
     elif reduction == Reduction.SHARED_PCA:
-        pca = PCA(2, random_state=seed)
-        space1 = pca.fit_transform(space1)
-        space2 = pca.transform(space2)
+        if precomputed_pca is None:
+            pca = PCA(2, random_state=seed)
+            space1 = pca.fit_transform(space1)
+            space2 = pca.transform(space2)
+            precomputed_pca = pca
+        else:
+            space1 = precomputed_pca.transform(space1)
+            space2 = precomputed_pca.transform(space2)
     elif reduction == Reduction.TSNE:
         space1 = TSNE(2, random_state=seed, learning_rate="auto", init="pca", perplexity=perplexity).fit_transform(
             space1
@@ -325,3 +434,21 @@ def reduce(space1: torch.Tensor, space2: torch.Tensor, reduction: Reduction, see
         raise NotImplementedError
 
     return space1, space2
+
+
+def reduce_PCA_stateful(
+    space1: torch.Tensor,
+    space2: torch.Tensor,
+    seed: int = 42,
+    precomputed_pca=None,
+):
+    if precomputed_pca is None:
+        pca = PCA(2, random_state=seed)
+        space1 = pca.fit_transform(space1)
+        space2 = pca.transform(space2)
+        precomputed_pca = pca
+    else:
+        space1 = precomputed_pca.transform(space1)
+        space2 = precomputed_pca.transform(space2)
+
+    return space1, space2, precomputed_pca

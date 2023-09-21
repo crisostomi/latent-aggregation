@@ -1,0 +1,178 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "S80": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.8049657344818115,
+                    "cka_orig_aggr_abs_rel": 0.7258090376853943,
+                    "cka_orig_aggr_rel_rel": 0.8898763656616211,
+                    "cka_shared": 0.9027044773101807,
+                    "cka_non_shared": 0.847138524055481
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.8310508131980896,
+                    "cka_orig_aggr_abs_rel": 0.7441472411155701,
+                    "cka_orig_aggr_rel_rel": 0.8814281821250916,
+                    "cka_shared": 0.9000986814498901,
+                    "cka_non_shared": 0.8136186003684998
+                }
+            },
+            "S60": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.8298147916793823,
+                    "cka_orig_aggr_abs_rel": 0.7101954817771912,
+                    "cka_orig_aggr_rel_rel": 0.8525765538215637,
+                    "cka_shared": 0.8813033103942871,
+                    "cka_non_shared": 0.8237504959106445
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.8398714065551758,
+                    "cka_orig_aggr_abs_rel": 0.717551052570343,
+                    "cka_orig_aggr_rel_rel": 0.8444230556488037,
+                    "cka_shared": 0.8681556582450867,
+                    "cka_non_shared": 0.8260840177536011
+                }
+            },
+            "S40": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.8359735012054443,
+                    "cka_orig_aggr_abs_rel": 0.675223708152771,
+                    "cka_orig_aggr_rel_rel": 0.8314632177352905,
+                    "cka_shared": 0.8884596824645996,
+                    "cka_non_shared": 0.7956398725509644
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.8530961275100708,
+                    "cka_orig_aggr_abs_rel": 0.6854150295257568,
+                    "cka_orig_aggr_rel_rel": 0.82378751039505,
+                    "cka_shared": 0.8873395919799805,
+                    "cka_non_shared": 0.784919261932373
+                }
+            },
+            "S20": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.7720887064933777,
+                    "cka_orig_aggr_abs_rel": 0.6231088042259216,
+                    "cka_orig_aggr_rel_rel": 0.7924157381057739,
+                    "cka_shared": 0.8701673746109009,
+                    "cka_non_shared": 0.7714929580688477
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.7912901639938354,
+                    "cka_orig_aggr_abs_rel": 0.5864580869674683,
+                    "cka_orig_aggr_rel_rel": 0.7897070646286011,
+                    "cka_shared": 0.8770343065261841,
+                    "cka_non_shared": 0.7672345638275146
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S80": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.770563006401062,
+                    "cka_orig_aggr_abs_rel": 0.7021077275276184,
+                    "cka_orig_aggr_rel_rel": 0.897368848323822,
+                    "cka_shared": 0.9032264947891235,
+                    "cka_non_shared": 0.8766366839408875
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.7808941006660461,
+                    "cka_orig_aggr_abs_rel": 0.710140585899353,
+                    "cka_orig_aggr_rel_rel": 0.9205231070518494,
+                    "cka_shared": 0.9279567003250122,
+                    "cka_non_shared": 0.8966977596282959
+                }
+            },
+            "S60": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.7306674122810364,
+                    "cka_orig_aggr_abs_rel": 0.6608924865722656,
+                    "cka_orig_aggr_rel_rel": 0.8882699012756348,
+                    "cka_shared": 0.9156350493431091,
+                    "cka_non_shared": 0.8480820059776306
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.7416914105415344,
+                    "cka_orig_aggr_abs_rel": 0.6311055421829224,
+                    "cka_orig_aggr_rel_rel": 0.867329478263855,
+                    "cka_shared": 0.8982428908348083,
+                    "cka_non_shared": 0.8247060179710388
+                }
+            },
+            "S40": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.7326316237449646,
+                    "cka_orig_aggr_abs_rel": 0.6374510526657104,
+                    "cka_orig_aggr_rel_rel": 0.8569139242172241,
+                    "cka_shared": 0.9061646461486816,
+                    "cka_non_shared": 0.825788676738739
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.757361114025116,
+                    "cka_orig_aggr_abs_rel": 0.650770366191864,
+                    "cka_orig_aggr_rel_rel": 0.835161030292511,
+                    "cka_shared": 0.8735947608947754,
+                    "cka_non_shared": 0.8116132616996765
+                }
+            },
+            "S20": {
+                "N10": {
+                    "cka_orig_orig_rel_abs": 0.7163172364234924,
+                    "cka_orig_aggr_abs_rel": 0.49456602334976196,
+                    "cka_orig_aggr_rel_rel": 0.761194109916687,
+                    "cka_shared": 0.8615409731864929,
+                    "cka_non_shared": 0.7400858402252197
+                },
+                "N5": {
+                    "cka_orig_orig_rel_abs": 0.7280997037887573,
+                    "cka_orig_aggr_abs_rel": 0.5376070737838745,
+                    "cka_orig_aggr_rel_rel": 0.7958618998527527,
+                    "cka_shared": 0.8722742199897766,
+                    "cka_non_shared": 0.7785661220550537
+                }
+            }
+        }
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "S100": {
+                "N25": {
+                    "cka_orig_orig_rel_abs": 0.821500301361084,
+                    "cka_orig_aggr_abs_rel": 0.6096830368041992,
+                    "cka_orig_aggr_rel_rel": 0.7552660703659058,
+                    "cka_shared": 0.8050493597984314,
+                    "cka_non_shared": 0.7182719111442566
+                }
+            },
+            "S50": {
+                "N25": {
+                    "cka_orig_orig_rel_abs": 0.7901334762573242,
+                    "cka_orig_aggr_abs_rel": 0.5522295832633972,
+                    "cka_orig_aggr_rel_rel": 0.7061892151832581,
+                    "cka_shared": 0.7994688153266907,
+                    "cka_non_shared": 0.674153745174408
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S100": {
+                "N25": {
+                    "cka_orig_orig_rel_abs": 0.809148371219635,
+                    "cka_orig_aggr_abs_rel": 0.7392513155937195,
+                    "cka_orig_aggr_rel_rel": 0.8829087615013123,
+                    "cka_shared": 0.9141824841499329,
+                    "cka_non_shared": 0.853020191192627
+                }
+            },
+            "S50": {
+                "N25": {
+                    "cka_orig_orig_rel_abs": 0.7818361520767212,
+                    "cka_orig_aggr_abs_rel": 0.6735362410545349,
+                    "cka_orig_aggr_rel_rel": 0.847697913646698,
+                    "cka_shared": 0.9146944880485535,
+                    "cka_non_shared": 0.8260380625724792
+                }
+            }
+        }
+    }
+}

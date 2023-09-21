@@ -1,6 +1,5 @@
 # https://stackoverflow.com/questions/71356361/selecting-multiple-configs-from-a-config-group-in-hydra-without-using-an-explici
 defaults:
-  # - model: vanilla_cnn  # vanilla_cnn, efficient_net
   - model@model.vanilla_cnn: vanilla_cnn
   - model@model.efficient_net: efficient_net
   - _self_
@@ -21,7 +20,7 @@ data:
   _target_: la.data.part_shared_part_novel_datamodule.PartSharedPartNovelDatamodule
   data_path: ${nn.data_path}
   only_use_sample_num: -1 # -1 means use all samples
-  keep_img_column: True
+  keep_img_column: False
 
   gpus: ${train.trainer.gpus}
 

@@ -37,20 +37,21 @@ configurations:
   - dataset_name: cifar100
     model_name: efficient_net
 
-  - dataset_name: cifar100
-    model_name: resnet
-
-  - dataset_name: cifar100
-    model_name: shake_resnet
-
   - dataset_name: tiny_imagenet
     model_name: from_scratch_cnn
 
   - dataset_name: tiny_imagenet
     model_name: efficient_net
 
-  - dataset_name: tiny_imagenet
-    model_name: resnet
 
   # - dataset_name: tiny_imagenet
   #   model_name: shake_resnet
+
+  # - dataset_name: cifar100
+  #   model_name: resnet
+
+  # - dataset_name: tiny_imagenet
+    # model_name: resnet
+
+  # - dataset_name: cifar100
+    # model_name: shake_resnet

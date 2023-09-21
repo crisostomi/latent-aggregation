@@ -120,7 +120,6 @@ def get_task_model(data, task_ind):
 
 
 def compute_assignments_anchor_heuristic(datamodule, model_ind, num_tasks, num_closest_anchors, label_to_task):
-
     anchors = datamodule.data[f"task_{model_ind}_anchors"]
     norm_anchors = standard_normalization(anchors["embedding"])
     norm_anchors = F.normalize(norm_anchors, p=2, dim=-1).cuda()
@@ -205,7 +204,6 @@ def compute_assignments_cross_space_anchor_heuristic(
     assignments = {f"task_{i}": None for i in range(1, num_tasks + 1)}
 
     for task_ind in range(1, num_tasks + 1):
-
         per_task_acc = Accuracy().to("cuda")
 
         datamodule.task_ind = task_ind
@@ -310,7 +308,6 @@ def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives, to
     assignments = {f"task_{i}": None for i in range(1, num_tasks + 1)}
 
     for task_ind in range(1, num_tasks + 1):
-
         datamodule.task_ind = task_ind
         datamodule.batch_size.test = batch_size
 
@@ -318,14 +315,12 @@ def compute_assignments_cosine_trainset(datamodule, num_tasks, use_relatives, to
         task_assignments = []
         with torch.no_grad():
             for batch in tqdm(test_dataloader, desc="Assigning test samples to tasks"):
-
                 model_similarities = []
 
                 # (batch_size, C, H, W)
                 x = batch["x"].to("cuda")
 
                 for model_ind in range(1, num_tasks + 1):
-
                     train_embeddings = datamodule.data[f"task_{model_ind}_train"]["embedding"].cuda()
 
                     model = get_task_model(datamodule.data, model_ind)
@@ -392,7 +387,6 @@ def compute_perfect_assignment(datamodule, num_tasks):
     assignments = {f"task_{i}": None for i in range(1, num_tasks + 1)}
 
     for task_ind in range(1, num_tasks + 1):
-
         num_task_samples = len(datamodule.data[f"task_{task_ind}_test"])
         ground_truth_task_ind = torch.full(size=(num_task_samples,), fill_value=task_ind)
 
@@ -402,9 +396,13 @@ def compute_perfect_assignment(datamodule, num_tasks):
 
 
 def compute_embeddings(datamodule, assignments, num_tasks):
-
     batch_size = 1
     task_embeds = {f"task_{i}": {"embedding": [], "y": [], "id": []} for i in range(1, num_tasks + 1)}
+
+    if datamodule.has_coarse_label:
+        task_embeds = {
+            f"task_{i}": {"embedding": [], "y": [], "id": [], "coarse_label": []} for i in range(1, num_tasks + 1)
+        }
 
     for task_ind in range(1, num_tasks + 1):
         datamodule.task_ind = task_ind
@@ -414,11 +412,11 @@ def compute_embeddings(datamodule, assignments, num_tasks):
 
         with torch.no_grad():
             for sample_ind, sample in enumerate(tqdm(test_dataloader, desc="Embedding test samples")):
-
                 x = sample["x"].to("cuda")
                 y = sample["y"][0].to("cuda")
                 ids = sample["id"][0]
-                # coarse_labels = batch["coarse_label"]
+                if datamodule.has_coarse_label:
+                    coarse_labels = sample["coarse_label"]
 
                 model_ind = assignments[f"task_{task_ind}"][sample_ind]
                 model = get_task_model(datamodule.data, model_ind)
@@ -428,7 +426,9 @@ def compute_embeddings(datamodule, assignments, num_tasks):
                 task_embeds[f"task_{model_ind}"]["embedding"].append(embeds)
                 task_embeds[f"task_{model_ind}"]["y"].append(y)
                 task_embeds[f"task_{model_ind}"]["id"].append(ids)
-                # task_embeds[f'task_{task_ind}']['coarse_label'].append(coarse_labels)
+
+                if datamodule.has_coarse_label:
+                    task_embeds[f"task_{model_ind}"]["coarse_label"].append(coarse_labels)
 
     return task_embeds
 
@@ -442,6 +442,9 @@ def store_task_specific_test_embeds(datamodule, task_embeds, num_tasks):
         ids = task_test_embeds["id"]
 
         data_dict = {"embedding": embeds, "y": y_list, "id": ids}
+
+        if "coarse_label" in task_test_embeds:
+            data_dict["coarse_label"] = task_test_embeds["coarse_label"]
 
         dataset = Dataset.from_dict(data_dict)
         dataset.set_format(type="torch", columns=["embedding", "y"])

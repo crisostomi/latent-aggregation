@@ -34,11 +34,13 @@ from la.utils.relative_analysis import (
     Reduction,
     compare_merged_original_qualitative,
     plot_pairwise_dist,
+    plot_prototypes,
     plot_self_dist,
     plot_space_grid,
     reduce,
     self_sim_comparison,
 )
+from la.utils.separability_analysis import compute_separabilities
 from la.utils.task_utils import get_shared_samples_ids, map_labels_to_global
 from la.utils.utils import add_tensor_column, save_dict_to_file, standard_normalization
 
@@ -58,48 +60,70 @@ def run(cfg: DictConfig) -> str:
 
     for analysis in analyses:
         all_results[analysis] = {
-            dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
+            dataset_name: {
+                model_name: {
+                    f"S{i}": {f"N{j}": {} for j in cfg.num_novel_classes[dataset_name]}
+                    for i in cfg.num_shared_classes[dataset_name]
+                }
+                for model_name in cfg.model_names
+            }
+            for dataset_name in cfg.dataset_names
         }
 
     check_runs_exist(cfg.configurations)
 
+    analysis_state = {}
     for single_cfg in cfg.configurations:
-        single_cfg_results = single_configuration_experiment(cfg, single_cfg)
+        single_cfg_results, analysis_state = single_configuration_experiment(cfg, single_cfg, analysis_state)
 
         for analysis in analyses:
+            model_name = (
+                "_".join(single_cfg.model_name) if isinstance(single_cfg.model_name, list) else single_cfg.model_name
+            )
+
             if cfg.run_analysis[analysis]:
-                all_results[analysis][single_cfg.dataset_name]["_".join(single_cfg.model_name)][
-                    f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}"
+                all_results[analysis][single_cfg.dataset_name][model_name][f"S{single_cfg.num_shared_classes}"][
+                    f"N{single_cfg.num_novel_classes}"
                 ] = single_cfg_results[analysis]
 
     for analysis in analyses:
-
         if cfg.run_analysis[analysis]:
             save_dict_to_file(path=cfg.results_path[analysis], content=all_results[analysis])
 
 
 def check_runs_exist(configurations):
+    non_existing_runs = []
+
     for single_cfg in configurations:
+        model_name = (
+            "_".join(single_cfg.model_name) if isinstance(single_cfg.model_name, list) else single_cfg.model_name
+        )
+
         dataset_name, num_shared_classes, num_novel_classes, model_name = (
             single_cfg.dataset_name,
             single_cfg.num_shared_classes,
             single_cfg.num_novel_classes,
-            # single_cfg.model_name,
-            "_".join(single_cfg.model_name),
+            model_name,
         )
 
         dataset_path = f"{PROJECT_ROOT}/data/{dataset_name}/part_shared_part_novel/S{num_shared_classes}_N{num_novel_classes}_{model_name}"
 
-        assert os.path.exists(dataset_path), f"Path {dataset_path} does not exist."
+        if not os.path.exists(dataset_path):
+            run_identifier = (
+                f"S{single_cfg.num_shared_classes}_N{single_cfg.num_novel_classes}_{model_name}_{dataset_name}"
+            )
+            non_existing_runs.append(run_identifier)
+
+    assert len(non_existing_runs) == 0, f"The following runs do not exist: {non_existing_runs}"
 
 
-def single_configuration_experiment(global_cfg, single_cfg):
+def single_configuration_experiment(global_cfg, single_cfg, analysis_state):
+    model_name = "_".join(single_cfg.model_name) if isinstance(single_cfg.model_name, list) else single_cfg.model_name
     dataset_name, num_shared_classes, num_novel_classes, model_name = (
         single_cfg.dataset_name,
         single_cfg.num_shared_classes,
         single_cfg.num_novel_classes,
-        # single_cfg.model_name,
-        "_".join(single_cfg.model_name),
+        model_name,
     )
 
     has_coarse_label = global_cfg.has_coarse_label[dataset_name]
@@ -146,8 +170,8 @@ def single_configuration_experiment(global_cfg, single_cfg):
     shared_samples, disjoint_samples = subdivide_shared_and_non_shared(data, num_tasks)
 
     novel_samples = {
-        "train": concatenate_datasets(disjoint_samples["train"]),
-        "test": concatenate_datasets(disjoint_samples["test"]),
+        "train": concatenate_datasets(list(disjoint_samples["train"].values())),
+        "test": concatenate_datasets(list(disjoint_samples["test"].values())),
     }
 
     # Merge the subspaces to obtain a single unified space
@@ -174,35 +198,66 @@ def single_configuration_experiment(global_cfg, single_cfg):
     merged_dataset_shared = merged_dataset.filter(lambda row: row["y"].item() in shared_classes)
     original_dataset_shared = original_dataset.filter(lambda row: row["y"].item() in shared_classes)
 
-    if global_cfg.run_qualitative_analysis:
+    # construct a dataset that is just the concatenation of the absolute embeddings of the different tasks
+    jumble_dataset = concatenate_datasets([data[f"task_{i}_{mode}"] for i in range(1, num_tasks + 1)])
+
+    if global_cfg.run_analysis.qualitative:
         plots_path = (
-            Path(global_cfg.plots_path) / dataset_name / model_name / f"S{num_shared_classes}_N{num_novel_classes}"
+            Path(global_cfg.results_path.plots)
+            / dataset_name
+            / model_name
+            / f"S{num_shared_classes}_N{num_novel_classes}"
         )
         plots_path.mkdir(parents=True, exist_ok=True)
 
-        compare_merged_original_qualitative(
-            original_dataset, merged_dataset, has_coarse_label, plots_path, suffix="_all_classes"
+        compare_func = partial(
+            compare_merged_original_qualitative,
+            has_coarse_label=has_coarse_label,
+            plots_path=plots_path,
+            num_classes=num_total_classes,
+            cfg=global_cfg,
         )
 
-        compare_merged_original_qualitative(
+        compare_func(
             original_dataset_nonshared,
             merged_dataset_nonshared,
-            has_coarse_label,
-            plots_path,
             suffix="_nonshared_classes",
         )
 
-        compare_merged_original_qualitative(
+        compare_func(
             original_dataset_shared,
             merged_dataset_shared,
-            has_coarse_label,
-            plots_path,
             suffix="_shared_classes",
         )
 
+        if has_coarse_label:
+            plot_prototypes(
+                original_dataset,
+                merged_dataset,
+                orig_dataset_embed_key="embedding",
+                merged_dataset_embed_key="relative_embeddings",
+                reduction=Reduction.INDEPENDENT_PCA,
+                plots_path=plots_path,
+                suffix="_ours",
+                prefix="",
+                cfg=global_cfg,
+            )
+
+            plot_prototypes(
+                original_dataset,
+                jumble_dataset,
+                orig_dataset_embed_key="embedding",
+                merged_dataset_embed_key="embedding",
+                reduction=Reduction.INDEPENDENT_PCA,
+                plots_path=plots_path,
+                suffix="_jumble",
+                prefix="",
+                cfg=global_cfg,
+            )
+
     results = {}
 
-    if global_cfg.run_clustering_analysis:
+    if global_cfg.run_analysis.clustering:
         clustering_results_original = compute_clustering_metrics(
             original_dataset["embedding"], space_y=original_dataset["y"], num_classes=num_total_classes
         )
@@ -221,19 +276,14 @@ def single_configuration_experiment(global_cfg, single_cfg):
             "merged": clustering_results_merged,
         }
 
-    if global_cfg.run_cka_analysis:
+    if global_cfg.run_analysis.cka:
         cka = CKA(mode="linear", device="cuda")
 
-        cka_rel_abs = None
-        try:
-            cka_rel_abs = cka(original_dataset["relative_embeddings"], torch.stack(original_dataset["embedding"]))
-            cka_rel_abs.detach().item()
-        except:
-            pylogger.info(
-                "CKA between relative and absolute embeddings not possible when using different architectures"
-            )
+        cka_orig_orig_rel_abs = cka(original_dataset["relative_embeddings"], original_dataset["embedding"])
 
-        cka_tot = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
+        cka_orig_aggr_abs_rel = cka(original_dataset["embedding"], merged_dataset["relative_embeddings"])
+
+        cka_orig_aggr_rel_rel = cka(merged_dataset["relative_embeddings"], original_dataset["relative_embeddings"])
 
         cka_nonshared = cka(
             merged_dataset_nonshared["relative_embeddings"],
@@ -246,16 +296,25 @@ def single_configuration_experiment(global_cfg, single_cfg):
         )
 
         results["cka"] = {
-            "cka_rel_abs": cka_rel_abs,
-            "cka_tot": cka_tot.detach().item(),
+            "cka_orig_orig_rel_abs": cka_orig_orig_rel_abs.detach().item(),
+            "cka_orig_aggr_abs_rel": cka_orig_aggr_abs_rel.detach().item(),
+            "cka_orig_aggr_rel_rel": cka_orig_aggr_rel_rel.detach().item(),
             "cka_shared": cka_shared.detach().item(),
             "cka_non_shared": cka_nonshared.detach().item(),
         }
 
-    if global_cfg.run_classification_analysis:
-        # construct a dataset that is just the concatenation of the absolute embeddings of the different tasks
-        jumble_dataset = concatenate_datasets([data[f"task_{i}_{mode}"] for i in range(1, num_tasks + 1)])
+    if global_cfg.run_analysis.separability:
+        separabilities_ours = compute_separabilities(
+            merged_dataset["relative_embeddings"], merged_dataset["label"], non_shared_classes
+        )
+        separabilities_naive = compute_separabilities(
+            jumble_dataset["embedding"], jumble_dataset["label"], non_shared_classes
+        )
 
+        pylogger.info(separabilities_ours)
+        pylogger.info(separabilities_naive)
+
+    if global_cfg.run_analysis.classification:
         class_exp = partial(
             run_classification_experiment,
             shared_classes,
@@ -273,14 +332,14 @@ def single_configuration_experiment(global_cfg, single_cfg):
 
         class_results_merged = class_exp(merged_dataset, use_relatives=True)
 
-        results["class"] = {
+        results["classification"] = {
             "original_abs": class_results_original_abs,
             "original_rel": class_results_original_rel,
             "jumble_abs": class_results_jumble,
             "merged": class_results_merged,
         }
 
-    return results
+    return results, analysis_state
 
 
 def add_anchor_column(data, num_tasks, anchor_ids):

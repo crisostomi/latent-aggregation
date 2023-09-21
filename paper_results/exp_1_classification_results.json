@@ -1,0 +1,478 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "S80": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7063485383987427,
+                        "non_shared_class_acc": 0.6584309339523315
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6673333048820496,
+                        "shared_class_acc": 0.6766095161437988,
+                        "non_shared_class_acc": 0.6399638056755066
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.6759259104728699,
+                        "shared_class_acc": 0.6816191673278809,
+                        "non_shared_class_acc": 0.6354211568832397
+                    },
+                    "merged": {
+                        "total_acc": 0.7286666631698608,
+                        "shared_class_acc": 0.7096995711326599,
+                        "non_shared_class_acc": 0.7951793074607849
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7063485383987427,
+                        "non_shared_class_acc": 0.6584309339523315
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6633333563804626,
+                        "shared_class_acc": 0.6704025268554688,
+                        "non_shared_class_acc": 0.6426836252212524
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7066666483879089,
+                        "shared_class_acc": 0.7105552554130554,
+                        "non_shared_class_acc": 0.6624336242675781
+                    },
+                    "merged": {
+                        "total_acc": 0.7493333220481873,
+                        "shared_class_acc": 0.7229852080345154,
+                        "non_shared_class_acc": 0.8407674431800842
+                    }
+                }
+            },
+            "S60": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7243068814277649,
+                        "non_shared_class_acc": 0.6510640978813171
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6673333048820496,
+                        "shared_class_acc": 0.6935469508171082,
+                        "non_shared_class_acc": 0.6233763098716736
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.715238094329834,
+                        "shared_class_acc": 0.7268810272216797,
+                        "non_shared_class_acc": 0.6532769799232483
+                    },
+                    "merged": {
+                        "total_acc": 0.7866666913032532,
+                        "shared_class_acc": 0.7619426846504211,
+                        "non_shared_class_acc": 0.815353274345398
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7243068814277649,
+                        "non_shared_class_acc": 0.6510640978813171
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6673333048820496,
+                        "shared_class_acc": 0.6935469508171082,
+                        "non_shared_class_acc": 0.6233763098716736
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7582051157951355,
+                        "shared_class_acc": 0.7622146606445312,
+                        "non_shared_class_acc": 0.7097288370132446
+                    },
+                    "merged": {
+                        "total_acc": 0.809333324432373,
+                        "shared_class_acc": 0.778704047203064,
+                        "non_shared_class_acc": 0.8507422804832458
+                    }
+                }
+            },
+            "S40": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7363539934158325,
+                        "non_shared_class_acc": 0.6696970462799072
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6666666865348816,
+                        "shared_class_acc": 0.6994788646697998,
+                        "non_shared_class_acc": 0.6460233330726624
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7506666779518127,
+                        "shared_class_acc": 0.7469066977500916,
+                        "non_shared_class_acc": 0.7665221691131592
+                    },
+                    "merged": {
+                        "total_acc": 0.840666651725769,
+                        "shared_class_acc": 0.8016602396965027,
+                        "non_shared_class_acc": 0.8667230010032654
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7363539934158325,
+                        "non_shared_class_acc": 0.6696970462799072
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6666666865348816,
+                        "shared_class_acc": 0.6994788646697998,
+                        "non_shared_class_acc": 0.6460233330726624
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7961728572845459,
+                        "shared_class_acc": 0.8029820919036865,
+                        "non_shared_class_acc": 0.741854190826416
+                    },
+                    "merged": {
+                        "total_acc": 0.8606666922569275,
+                        "shared_class_acc": 0.8048380613327026,
+                        "non_shared_class_acc": 0.8972752094268799
+                    }
+                }
+            },
+            "S20": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7070633769035339,
+                        "non_shared_class_acc": 0.6932936906814575
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6733333468437195,
+                        "shared_class_acc": 0.6608662009239197,
+                        "non_shared_class_acc": 0.674139142036438
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7994444370269775,
+                        "shared_class_acc": 0.8016996383666992,
+                        "non_shared_class_acc": 0.7956528067588806
+                    },
+                    "merged": {
+                        "total_acc": 0.871999979019165,
+                        "shared_class_acc": 0.8403064608573914,
+                        "non_shared_class_acc": 0.8815870881080627
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.6953333616256714,
+                        "shared_class_acc": 0.7070633769035339,
+                        "non_shared_class_acc": 0.6932936906814575
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6733333468437195,
+                        "shared_class_acc": 0.6608662009239197,
+                        "non_shared_class_acc": 0.674139142036438
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.8263333439826965,
+                        "shared_class_acc": 0.8283060193061829,
+                        "non_shared_class_acc": 0.8166546821594238
+                    },
+                    "merged": {
+                        "total_acc": 0.9046666622161865,
+                        "shared_class_acc": 0.8278616666793823,
+                        "non_shared_class_acc": 0.9251606464385986
+                    }
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S80": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.37599998712539673,
+                        "shared_class_acc": 0.38036465644836426,
+                        "non_shared_class_acc": 0.3594581186771393
+                    },
+                    "original_rel": {
+                        "total_acc": 0.3513333201408386,
+                        "shared_class_acc": 0.34963589906692505,
+                        "non_shared_class_acc": 0.3521333932876587
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.3637036979198456,
+                        "shared_class_acc": 0.36764809489250183,
+                        "non_shared_class_acc": 0.3423802852630615
+                    },
+                    "merged": {
+                        "total_acc": 0.4339999854564667,
+                        "shared_class_acc": 0.386790931224823,
+                        "non_shared_class_acc": 0.5960921049118042
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.38600000739097595,
+                        "shared_class_acc": 0.38784223794937134,
+                        "non_shared_class_acc": 0.3712773025035858
+                    },
+                    "original_rel": {
+                        "total_acc": 0.35466668009757996,
+                        "shared_class_acc": 0.36197158694267273,
+                        "non_shared_class_acc": 0.32211771607398987
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.3733333349227905,
+                        "shared_class_acc": 0.3762184679508209,
+                        "non_shared_class_acc": 0.3332194983959198
+                    },
+                    "merged": {
+                        "total_acc": 0.4893333315849304,
+                        "shared_class_acc": 0.4114398956298828,
+                        "non_shared_class_acc": 0.7703062295913696
+                    }
+                }
+            },
+            "S60": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.3986666798591614,
+                        "shared_class_acc": 0.4103948175907135,
+                        "non_shared_class_acc": 0.3825993537902832
+                    },
+                    "original_rel": {
+                        "total_acc": 0.3606666624546051,
+                        "shared_class_acc": 0.35712847113609314,
+                        "non_shared_class_acc": 0.3671071231365204
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.3866666555404663,
+                        "shared_class_acc": 0.3895677626132965,
+                        "non_shared_class_acc": 0.36997881531715393
+                    },
+                    "merged": {
+                        "total_acc": 0.5293333530426025,
+                        "shared_class_acc": 0.45172184705734253,
+                        "non_shared_class_acc": 0.6362923979759216
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.37533333897590637,
+                        "shared_class_acc": 0.3823592960834503,
+                        "non_shared_class_acc": 0.368609219789505
+                    },
+                    "original_rel": {
+                        "total_acc": 0.3700000047683716,
+                        "shared_class_acc": 0.3729874789714813,
+                        "non_shared_class_acc": 0.36638325452804565
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.3893589675426483,
+                        "shared_class_acc": 0.3872632086277008,
+                        "non_shared_class_acc": 0.40344345569610596
+                    },
+                    "merged": {
+                        "total_acc": 0.5540000200271606,
+                        "shared_class_acc": 0.44789668917655945,
+                        "non_shared_class_acc": 0.705518364906311
+                    }
+                }
+            },
+            "S40": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.3866666555404663,
+                        "shared_class_acc": 0.40206897258758545,
+                        "non_shared_class_acc": 0.38101905584335327
+                    },
+                    "original_rel": {
+                        "total_acc": 0.3720000088214874,
+                        "shared_class_acc": 0.39096635580062866,
+                        "non_shared_class_acc": 0.360001802444458
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.4171110987663269,
+                        "shared_class_acc": 0.411198228597641,
+                        "non_shared_class_acc": 0.4482952356338501
+                    },
+                    "merged": {
+                        "total_acc": 0.5833333134651184,
+                        "shared_class_acc": 0.5005573630332947,
+                        "non_shared_class_acc": 0.6372309923171997
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.38199999928474426,
+                        "shared_class_acc": 0.3908633887767792,
+                        "non_shared_class_acc": 0.3783135712146759
+                    },
+                    "original_rel": {
+                        "total_acc": 0.359333336353302,
+                        "shared_class_acc": 0.34989598393440247,
+                        "non_shared_class_acc": 0.3652188181877136
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.4386419653892517,
+                        "shared_class_acc": 0.4417547285556793,
+                        "non_shared_class_acc": 0.41156667470932007
+                    },
+                    "merged": {
+                        "total_acc": 0.6399999856948853,
+                        "shared_class_acc": 0.49104398488998413,
+                        "non_shared_class_acc": 0.740547776222229
+                    }
+                }
+            },
+            "S20": {
+                "N10": {
+                    "original_abs": {
+                        "total_acc": 0.39133334159851074,
+                        "shared_class_acc": 0.3786868155002594,
+                        "non_shared_class_acc": 0.39485636353492737
+                    },
+                    "original_rel": {
+                        "total_acc": 0.3686666786670685,
+                        "shared_class_acc": 0.3152364492416382,
+                        "non_shared_class_acc": 0.38128843903541565
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.4716666638851166,
+                        "shared_class_acc": 0.46225252747535706,
+                        "non_shared_class_acc": 0.4877486824989319
+                    },
+                    "merged": {
+                        "total_acc": 0.6233333349227905,
+                        "shared_class_acc": 0.5151257514953613,
+                        "non_shared_class_acc": 0.6502358913421631
+                    }
+                },
+                "N5": {
+                    "original_abs": {
+                        "total_acc": 0.38466668128967285,
+                        "shared_class_acc": 0.3695528507232666,
+                        "non_shared_class_acc": 0.3895261287689209
+                    },
+                    "original_rel": {
+                        "total_acc": 0.359333336353302,
+                        "shared_class_acc": 0.3171924948692322,
+                        "non_shared_class_acc": 0.3690235912799835
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.5099999904632568,
+                        "shared_class_acc": 0.5083342790603638,
+                        "non_shared_class_acc": 0.5172368288040161
+                    },
+                    "merged": {
+                        "total_acc": 0.7200000286102295,
+                        "shared_class_acc": 0.5515629649162292,
+                        "non_shared_class_acc": 0.7635338306427002
+                    }
+                }
+            }
+        }
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "S100": {
+                "N25": {
+                    "original_abs": {
+                        "total_acc": 0.6466666460037231,
+                        "shared_class_acc": 0.6628797054290771,
+                        "non_shared_class_acc": 0.6266024112701416
+                    },
+                    "original_rel": {
+                        "total_acc": 0.6019999980926514,
+                        "shared_class_acc": 0.599633514881134,
+                        "non_shared_class_acc": 0.6017043590545654
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.6754666566848755,
+                        "shared_class_acc": 0.6782100796699524,
+                        "non_shared_class_acc": 0.663261890411377
+                    },
+                    "merged": {
+                        "total_acc": 0.7319999933242798,
+                        "shared_class_acc": 0.7105327248573303,
+                        "non_shared_class_acc": 0.7541766166687012
+                    }
+                }
+            },
+            "S50": {
+                "N25": {
+                    "original_abs": {
+                        "total_acc": 0.6466666460037231,
+                        "shared_class_acc": 0.662046492099762,
+                        "non_shared_class_acc": 0.6378796696662903
+                    },
+                    "original_rel": {
+                        "total_acc": 0.5960000157356262,
+                        "shared_class_acc": 0.6071076393127441,
+                        "non_shared_class_acc": 0.5927440524101257
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.7235555648803711,
+                        "shared_class_acc": 0.7229061126708984,
+                        "non_shared_class_acc": 0.7230634689331055
+                    },
+                    "merged": {
+                        "total_acc": 0.7680000066757202,
+                        "shared_class_acc": 0.7444761395454407,
+                        "non_shared_class_acc": 0.7742568254470825
+                    }
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S100": {
+                "N25": {
+                    "original_abs": {
+                        "total_acc": 0.18666666746139526,
+                        "shared_class_acc": 0.19666728377342224,
+                        "non_shared_class_acc": 0.17753641307353973
+                    },
+                    "original_rel": {
+                        "total_acc": 0.16200000047683716,
+                        "shared_class_acc": 0.17794637382030487,
+                        "non_shared_class_acc": 0.14626863598823547
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.2184000015258789,
+                        "shared_class_acc": 0.21849416196346283,
+                        "non_shared_class_acc": 0.22007513046264648
+                    },
+                    "merged": {
+                        "total_acc": 0.2980000078678131,
+                        "shared_class_acc": 0.23181970417499542,
+                        "non_shared_class_acc": 0.36940518021583557
+                    }
+                }
+            },
+            "S50": {
+                "N25": {
+                    "original_abs": {
+                        "total_acc": 0.18266665935516357,
+                        "shared_class_acc": 0.21564000844955444,
+                        "non_shared_class_acc": 0.1752319484949112
+                    },
+                    "original_rel": {
+                        "total_acc": 0.16333332657814026,
+                        "shared_class_acc": 0.20210251212120056,
+                        "non_shared_class_acc": 0.1551865041255951
+                    },
+                    "jumble_abs": {
+                        "total_acc": 0.23762962222099304,
+                        "shared_class_acc": 0.22616642713546753,
+                        "non_shared_class_acc": 0.2603365182876587
+                    },
+                    "merged": {
+                        "total_acc": 0.35733333230018616,
+                        "shared_class_acc": 0.3617759644985199,
+                        "non_shared_class_acc": 0.3591689169406891
+                    }
+                }
+            }
+        }
+    }
+}

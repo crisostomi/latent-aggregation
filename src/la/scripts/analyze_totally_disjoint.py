@@ -63,7 +63,6 @@ def run(cfg: DictConfig) -> str:
                 ] = single_cfg_results[analysis]
 
     for analysis in analyses:
-
         if cfg.run_analysis[analysis]:
             save_dict_to_file(path=cfg.results_path[analysis], content=all_results[analysis])
 
@@ -159,13 +158,18 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         plots_path.mkdir(parents=True, exist_ok=True)
 
         compare_merged_original_qualitative(
-            original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, prefix="", suffix="all_classes"
+            original_dataset_test,
+            merged_dataset_test,
+            has_coarse_label,
+            num_total_classes,
+            plots_path,
+            prefix="",
+            suffix="all_classes",
         )
 
     results = {}
 
     if global_cfg.run_analysis["cka"]:
-
         cka = CKA(mode="linear", device="cuda")
 
         cka_rel_abs = cka(merged_dataset_test["relative_embeddings"], merged_dataset_test["embedding"])
@@ -178,7 +182,6 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         }
 
     if global_cfg.run_analysis["knn"]:
-
         knn_results_original_abs = run_knn_class_experiment(
             num_total_classes,
             train_dataset=original_dataset_train,
@@ -204,7 +207,6 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
         }
 
     if global_cfg.run_analysis["classification"]:
-
         label_to_task = {
             int(label): i
             for i in range(1, num_tasks + 1)
@@ -293,7 +295,6 @@ def add_task_id(dataset, label_to_task):
 
 
 def add_task_one_hot(dataset, num_tasks):
-
     task_one_hot = torch.nn.functional.one_hot(dataset["task"] - 1, num_tasks).float()
 
     task_aware_dataset = dataset.map(

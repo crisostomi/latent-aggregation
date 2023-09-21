@@ -63,7 +63,11 @@ class TotallyDisjointDatamodule(MyDataModule):
                 desc=f"Transforming task {self.task_ind} {mode} samples", **map_params
             )
 
-            self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=["x", "y", "id"])
+            columns = ["x", "y", "id"]
+            if self.has_coarse_label:
+                columns.append("coarse_label")
+
+            self.data[f"task_{self.task_ind}_{mode}"].set_format(type="torch", columns=columns)
             self.datasets[mode][self.task_ind] = self.data[f"task_{self.task_ind}_{mode}"]
 
         self.seen_tasks.add(self.task_ind)

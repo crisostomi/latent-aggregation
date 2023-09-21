@@ -9,111 +9,169 @@ results_path:
   plots: ${results_folder}/plots
 
 run_analysis:
-  cka: True
-  classification: True
-  clustering: True
-  qualitative: True
+  cka: False
+  classification: False
+  clustering: False
+  qualitative: False
+  separability: True
 
 has_coarse_label:
   cifar100: True
   tiny_imagenet: False
 
+num_shared_classes:
+  cifar100: [80, 60, 40, 20]
+  tiny_imagenet: [100, 50]
+
+num_novel_classes:
+  cifar100: [10, 5]
+  tiny_imagenet: [25]
+
 dataset_names:
   - cifar100
-  # - tiny_imagenet
+  - tiny_imagenet
 
 model_names:
-  - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
-  - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
-  - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
-  #- vanilla_cnn_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net
-  #- efficient_net
-  #- from_scratch_cnn
+  # - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
+  # - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
+  # - efficient_net_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net_vanilla_cnn
+  # - vanilla_cnn_vanilla_cnn_efficient_net_vanilla_cnn_efficient_net
+  - efficient_net
+  - vanilla_cnn
 
 num_total_classes:
   cifar100: 100
-  # tiny_imagenet: 200
+  tiny_imagenet: 200
 
 classifier_embed_dim: 256
 
-configurations:
-  - dataset_name: cifar100
-    model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
-    num_shared_classes: 80
-    num_novel_classes: 5
-
-  - dataset_name: cifar100
-    model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
-    num_shared_classes: 60
-    num_novel_classes: 10
-
-  - dataset_name: cifar100
-    model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
-    num_shared_classes: 40
-    num_novel_classes: 10
-
-  - dataset_name: cifar100
-    model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
-    num_shared_classes: 20
-    num_novel_classes: 10
-
 # configurations:
-#   # - dataset_name: cifar100
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 80
-#   #   num_novel_classes: 5
+  # - dataset_name: cifar100
+  #   model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
+  #   num_shared_classes: 80
+  #   num_novel_classes: 5
 
-#   # - dataset_name: cifar100
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 60
-#   #   num_novel_classes: 10
+  # - dataset_name: cifar100
+  #   model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
+  #   num_shared_classes: 60
+  #   num_novel_classes: 10
 
-#   # - dataset_name: cifar100
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 40
-#   #   num_novel_classes: 10
+  # - dataset_name: cifar100
+  #   model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
+  #   num_shared_classes: 40
+  #   num_novel_classes: 10
 
-#   # - dataset_name: cifar100
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 20
-#   #   num_novel_classes: 10
+  # - dataset_name: cifar100
+  #   model_name: ['efficient_net', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn', 'efficient_net', 'vanilla_cnn']
+  #   num_shared_classes: 20
+  #   num_novel_classes: 10
 
+configurations:
+# CIFAR100
+  # EFFICIENTNET
+    # N10
 #   - dataset_name: cifar100
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
 #     num_shared_classes: 80
-#     num_novel_classes: 5
+#     num_novel_classes: 10
 
 #   - dataset_name: cifar100
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
 #     num_shared_classes: 60
 #     num_novel_classes: 10
 
 #   - dataset_name: cifar100
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
 #     num_shared_classes: 40
 #     num_novel_classes: 10
 
 #   - dataset_name: cifar100
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
+#     num_shared_classes: 20
+#     num_novel_classes: 10
+#     # N5
+#   - dataset_name: cifar100
+#     model_name: efficient_net
+#     num_shared_classes: 80
+#     num_novel_classes: 5
+
+#   - dataset_name: cifar100
+#     model_name: efficient_net
+#     num_shared_classes: 60
+#     num_novel_classes: 5
+
+#   - dataset_name: cifar100
+#     model_name: efficient_net
+#     num_shared_classes: 40
+#     num_novel_classes: 5
+
+#   - dataset_name: cifar100
+#     model_name: efficient_net
+#     num_shared_classes: 20
+#     num_novel_classes: 5
+
+# # VANILLA CNN
+#   # N10
+  - dataset_name: cifar100
+    model_name: vanilla_cnn
+    num_shared_classes: 80
+    num_novel_classes: 10
+
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 60
+#     num_novel_classes: 10
+
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 40
+#     num_novel_classes: 10
+
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
 #     num_shared_classes: 20
 #     num_novel_classes: 10
 
-#   # - dataset_name: tiny_imagenet
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 100
-#   #   num_novel_classes: 20
+#   # N5
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 80
+#     num_novel_classes: 5
 
-#   # - dataset_name: tiny_imagenet
-#   #   model_name: efficient_net
-#   #   num_shared_classes: 50
-#   #   num_novel_classes: 25
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 60
+#     num_novel_classes: 5
 
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 40
+#     num_novel_classes: 5
+
+#   - dataset_name: cifar100
+#     model_name: vanilla_cnn
+#     num_shared_classes: 20
+#     num_novel_classes: 5
+
+# # TINY IMAGENET
+# #   EFFICIENTNET
 #   - dataset_name: tiny_imagenet
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
 #     num_shared_classes: 100
-#     num_novel_classes: 20
+#     num_novel_classes: 25
 
 #   - dataset_name: tiny_imagenet
-#     model_name: from_scratch_cnn
+#     model_name: efficient_net
+#     num_shared_classes: 50
+#     num_novel_classes: 25
+
+#   # VANILLACNN
+#   - dataset_name: tiny_imagenet
+#     model_name: vanilla_cnn
+#     num_shared_classes: 100
+#     num_novel_classes: 25
+
+#   - dataset_name: tiny_imagenet
+#     model_name: vanilla_cnn
 #     num_shared_classes: 50
 #     num_novel_classes: 25

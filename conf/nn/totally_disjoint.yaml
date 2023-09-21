@@ -2,7 +2,7 @@ defaults:
   - model: vanilla_cnn  # vanilla_cnn, efficient_net, resnet, shake_resnet
 
 dataset_name: cifar100 # cifar100 or tiny_imagenet
-partition_id : 4
+partition_id : 1
 data_path: ${path:${oc.env:PROJECT_ROOT}/data/${nn.dataset_name}/totally_disjoint/partition-${nn.partition_id}}
 output_path: ${path:${nn.data_path}_${nn.model.name}}
 embedding_path: ${path:${nn.data_path}_${nn.model.name}_embedding}

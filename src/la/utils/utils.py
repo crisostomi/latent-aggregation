@@ -31,6 +31,18 @@ class ToFloatRange:
         return x.float() / 255
 
 
+def compute_prototypes(x, y, num_classes):
+    prototypes = []
+    for i in range(num_classes):
+        samples_class_i = x[y == i]
+        prototype = torch.mean(samples_class_i, dim=0)
+        prototypes.append(prototype)
+
+    prototypes = torch.stack(prototypes)
+
+    return prototypes
+
+
 def encode_field(batch, src_field: str, tgt_field: str, transformation):
     """
     Create a new field with name `tgt_field` by applying `transformation` to `src_field`.
@@ -95,7 +107,6 @@ def save_dict_to_file(content, path):
 
 
 def embed_task_samples(datamodule, model, task_ind, modes) -> Dict:
-
     datamodule.shuffle_train = False
 
     embeddings = {mode: None for mode in modes}
@@ -156,7 +167,6 @@ def scatter_sum(
     out: Optional[torch.Tensor] = None,
     dim_size: Optional[int] = None,
 ) -> torch.Tensor:
-
     index = broadcast(index, src, dim)
     if out is None:
         size = list(src.size())

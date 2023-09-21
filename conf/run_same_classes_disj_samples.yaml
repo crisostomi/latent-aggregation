@@ -4,7 +4,6 @@ core:
   storage_dir: ${oc.env:PROJECT_ROOT}/storage
   version: 0.0.1
   tags:
-    - dev
     - same_classes_disj_samples
 
 defaults:

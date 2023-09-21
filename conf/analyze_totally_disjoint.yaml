@@ -6,7 +6,7 @@ run_analysis:
   cka: True
   classification: True
   clustering: False
-  qualitative: True
+  qualitative: False
   knn: False
 
 dataset_names:
@@ -40,7 +40,7 @@ knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
 plots_path: ${results_path}/plots
 
 has_coarse_label:
-  cifar100: False # TODO: change back
+  cifar100: True
   tiny_imagenet: False
 
 num_total_classes:
@@ -55,19 +55,16 @@ configurations:
     partition_id: 1
 
   - dataset_name: cifar100
-    model_name: from_scratch_cnn
-    partition_id: 2
+    model_name: efficient_net
+    partition_id: 1
 
-  - dataset_name: cifar100
+  - dataset_name: tiny_imagenet
     model_name: from_scratch_cnn
-    partition_id: 3
+    partition_id: 1
 
-  - dataset_name: cifar100
-    model_name: from_scratch_cnn
-    partition_id: 4
-
-  # - dataset_name: cifar100
-  #   model_name: efficient_net
+  - dataset_name: tiny_imagenet
+    model_name: efficient_net
+    partition_id: 1
 
   # - dataset_name: cifar100
   #   model_name: resnet

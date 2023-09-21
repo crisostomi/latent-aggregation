@@ -24,8 +24,7 @@ import la  # noqa
 from la.data.datamodule import MetaData
 from la.pl_modules.efficient_net import MyEfficientNet
 from la.pl_modules.pl_module import DataAugmentation
-from la.scripts.run_totally_disjoint import embed_all_samples
-from la.utils.utils import ToFloatRange, get_checkpoint_callback, build_callbacks
+from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
 
 disable_caching()
 pylogger = logging.getLogger(__name__)
@@ -105,7 +104,7 @@ def run(cfg: DictConfig) -> str:
 
         best_model.eval().cuda()
 
-        embedded_samples = embed_all_samples(
+        embedded_samples = embed_task_samples(
             datamodule, best_model, task_ind, modes=["train", "val", "test", "anchors"]
         )
 

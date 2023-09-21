@@ -25,8 +25,8 @@ from la.pl_modules.efficient_net import MyEfficientNet
 from la.utils.io_utils import save_dataset_to_disk
 from la.utils.utils import ToFloatRange, embed_task_samples, get_checkpoint_callback, build_callbacks
 
-# disable_caching()
 pylogger = logging.getLogger(__name__)
+disable_caching()
 
 
 def run(cfg: DictConfig) -> str:
@@ -64,9 +64,11 @@ def run(cfg: DictConfig) -> str:
     )
 
     for task_ind in range(num_tasks + 1):
+        # TODO: uncomment this if each task has different initialization
+        # cfg.train.seed_index += 1
         seed_index_everything(cfg.train)
 
-        pylogger.info(f"Instantiating <{cfg.nn.model[task_models[task_ind]]}>")
+        pylogger.info(f"Instantiating <{cfg.nn.model[task_models[task_ind]]}> with seed {cfg.train.seed_index}")
 
         task_class_vocab = datamodule.data["metadata"]["global_to_local_class_mappings"][f"task_{task_ind}"]
 
@@ -113,7 +115,6 @@ def run(cfg: DictConfig) -> str:
         if logger is not None:
             logger.experiment.finish()
 
-        # TODO: check that the best_model_path is different for different tasks
         best_model_path = get_checkpoint_callback(callbacks).best_model_path
 
         best_model = load_model(model.__class__, checkpoint_path=Path(best_model_path + ".zip"))
@@ -128,6 +129,7 @@ def run(cfg: DictConfig) -> str:
 
         datamodule.data[f"task_{task_ind}_train"] = embedded_samples["train"]
         datamodule.data[f"task_{task_ind}_val"] = embedded_samples["val"]
+        datamodule.data[f"task_{task_ind}_test"] = embedded_samples["test"]
 
     all_models = "_".join(list(cfg.nn.task_models))
     output_path = cfg.nn.data_path + "_" + all_models
