@@ -13,8 +13,11 @@ seed: 42
 num_task_classes: 30
 num_tasks: 4
 
-subtask_dataset_path: "${oc.env:PROJECT_ROOT}/matrioska_learning/subtasks"
-subtask_embedding_path: "${oc.env:PROJECT_ROOT}/matrioska_learning/subtasks_embeddings"
+subtask_dataset_path: "${oc.env:PROJECT_ROOT}/data/matrioska_learning/subtasks"
+subtask_embedding_path: "${oc.env:PROJECT_ROOT}/data/matrioska_learning/subtasks_embeddings"
+
+results_path: ${oc.env:PROJECT_ROOT}/results/class_subsets/num_task_classes_${num_task_classes}/classification_analysis.json
+
 
 defaults:
   - hydra: default

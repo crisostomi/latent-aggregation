@@ -28,6 +28,7 @@ from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier, KNNClassifier, Model
 from la.utils.relative_analysis import compare_merged_original_qualitative
 from la.data.my_dataset_dict import MyDatasetDict
+from la.utils.separability_analysis import compute_separabilities
 from la.utils.utils import add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
 
@@ -37,35 +38,35 @@ pylogger = logging.getLogger(__name__)
 
 
 def run(cfg: DictConfig) -> str:
-    """
-    Main entry point for the experiment.
-    """
+    """ """
     seed_index_everything(cfg)
+
+    all_results = {}
+
+    analyses = ["cka", "classification", "separability"]
+
+    for analysis in analyses:
+        all_results[analysis] = {
+            dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
+        }
 
     check_runs_exist(cfg.configurations)
 
-    all_cka_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_class_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-    all_knn_results = {
-        dataset_name: {model_name: {} for model_name in cfg.model_names} for dataset_name in cfg.dataset_names
-    }
-
+    analysis_state = {}
     for single_cfg in cfg.configurations:
-        cka_results, class_results, knn_results = single_configuration_experiment(cfg, single_cfg)
+        single_cfg_results, analysis_state = single_configuration_experiment(cfg, single_cfg, analysis_state)
 
-        all_cka_results[single_cfg.dataset_name][single_cfg.model_name] = cka_results
+        for analysis in analyses:
+            model_name = (
+                "_".join(single_cfg.model_name) if isinstance(single_cfg.model_name, list) else single_cfg.model_name
+            )
 
-        all_class_results[single_cfg.dataset_name][single_cfg.model_name] = class_results
+            if cfg.run_analysis[analysis]:
+                all_results[analysis][single_cfg.dataset_name][model_name] = single_cfg_results[analysis]
 
-        all_knn_results[single_cfg.dataset_name][single_cfg.model_name] = knn_results
-
-    save_dict_to_file(path=cfg.cka_results_path, content=all_cka_results)
-    save_dict_to_file(path=cfg.class_results_path, content=all_class_results)
-    save_dict_to_file(path=cfg.knn_results_path, content=all_knn_results)
+    for analysis in analyses:
+        if cfg.run_analysis[analysis]:
+            save_dict_to_file(path=cfg.results_path[analysis], content=all_results[analysis])
 
 
 def check_runs_exist(configurations):
@@ -80,7 +81,7 @@ def check_runs_exist(configurations):
         assert os.path.exists(dataset_path), f"Path {dataset_path} does not exist."
 
 
-def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConfig):
+def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConfig, analysis_state: dict = None):
     """
     Run a single experiment with the given configurations.
 
@@ -160,96 +161,125 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
     merged_dataset_train = merged_dataset_train.sort("id")
     merged_dataset_test = merged_dataset_test.sort("id")
 
+    jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
+    jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
+
     # this fails because original_dataset_train has more samples than merged_dataset_train because of the anchors
     # assert torch.all(torch.eq(merged_dataset_train["id"], original_dataset_train["id"]))
 
     assert torch.all(torch.eq(merged_dataset_test["id"], original_dataset_test["id"]))
 
-    # qualitative comparison absolute -- merged
-    plots_path = Path(global_cfg.plots_path) / dataset_name / model_name
+    results = {}
 
-    compare_merged_original_qualitative(
-        original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, num_total_classes, cfg=global_cfg
-    )
+    if global_cfg.run_analysis.qualitative:
+        plots_path = Path(global_cfg.results_path.plots) / dataset_name / model_name
+        plots_path.mkdir(parents=True, exist_ok=True)
+        compare_merged_original_qualitative(
+            original_dataset_test, merged_dataset_test, has_coarse_label, plots_path, num_total_classes, cfg=global_cfg
+        )
 
-    # CKA analysis
+    if global_cfg.run_analysis.cka:
+        cka = CKA(mode="linear", device="cuda")
 
-    cka = CKA(mode="linear", device="cuda")
+        cka_rel_abs = cka(merged_dataset_test["relative_embeddings"], merged_dataset_test["embedding"])
 
-    cka_rel_abs = cka(merged_dataset_test["relative_embeddings"], merged_dataset_test["embedding"])
+        cka_tot = cka(merged_dataset_test["relative_embeddings"], original_dataset_test["relative_embeddings"])
 
-    cka_tot = cka(merged_dataset_test["relative_embeddings"], original_dataset_test["relative_embeddings"])
+        results["cka"] = {
+            "cka_rel_abs": cka_rel_abs.detach().item(),
+            "cka_tot": cka_tot.detach().item(),
+        }
 
-    cka_results = {
-        "cka_rel_abs": cka_rel_abs.detach().item(),
-        "cka_tot": cka_tot.detach().item(),
-    }
+    if global_cfg.run_analysis.separability:
+        all_classes = torch.unique(original_dataset_test["y"]).tolist()
 
-    # KNN classification experiment
-    knn_results_original_abs = run_knn_class_experiment(
-        num_total_classes, train_dataset=original_dataset_train, test_dataset=original_dataset_test, use_relatives=False
-    )
+        separabilities_original = compute_separabilities(
+            original_dataset_test["embedding"], original_dataset_test["y"], all_classes
+        )
+        mean_separabilities_original = torch.mean(torch.tensor([s[2] for s in separabilities_original]))
 
-    knn_results_original_rel = run_knn_class_experiment(
-        num_total_classes, train_dataset=original_dataset_train, test_dataset=original_dataset_test, use_relatives=True
-    )
+        separabilities_ours = compute_separabilities(
+            merged_dataset_test["relative_embeddings"], merged_dataset_test["y"], all_classes
+        )
+        mean_separability_ours = torch.mean(torch.tensor([s[2] for s in separabilities_ours]))
+        separabilities_naive = compute_separabilities(jumble_test["embedding"], jumble_test["y"], all_classes)
 
-    knn_results_merged = run_knn_class_experiment(
-        num_total_classes, train_dataset=merged_dataset_train, test_dataset=merged_dataset_test, use_relatives=True
-    )
+        mean_separability_naive = torch.mean(torch.tensor([s[2] for s in separabilities_naive]))
 
-    knn_results = {
-        "original_abs": knn_results_original_abs,
-        "original_rel": knn_results_original_rel,
-        "merged": knn_results_merged,
-    }
+        results["separability"] = {
+            "mean_separability_ours": mean_separability_ours.item(),
+            "mean_separability_naive": mean_separability_naive.item(),
+            "mean_separability_original": mean_separabilities_original.item(),
+        }
 
-    # Classification analysis
+    if global_cfg.run_analysis.classification:
+        # KNN classification experiment
+        knn_results_original_abs = run_knn_class_experiment(
+            num_total_classes,
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=False,
+        )
 
-    class_exp = partial(
-        run_classification_experiment,
-        num_total_classes=num_total_classes,
-        classifier_embed_dim=global_cfg.classifier_embed_dim,
-    )
+        knn_results_original_rel = run_knn_class_experiment(
+            num_total_classes,
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=True,
+        )
 
-    jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
-    jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
-    class_results_jumble = class_exp(
-        train_dataset=jumble_train,
-        test_dataset=jumble_test,
-        use_relatives=False,
-        input_dim=original_dataset_train["embedding"].shape[1],
-    )
+        knn_results_merged = run_knn_class_experiment(
+            num_total_classes, train_dataset=merged_dataset_train, test_dataset=merged_dataset_test, use_relatives=True
+        )
 
-    class_results_original_abs = class_exp(
-        train_dataset=original_dataset_train,
-        test_dataset=original_dataset_test,
-        use_relatives=False,
-        input_dim=original_dataset_train["embedding"].shape[1],
-    )
+        knn_results = {
+            "original_abs": knn_results_original_abs,
+            "original_rel": knn_results_original_rel,
+            "merged": knn_results_merged,
+        }
 
-    class_results_original_rel = class_exp(
-        train_dataset=original_dataset_train,
-        test_dataset=original_dataset_test,
-        use_relatives=True,
-        input_dim=num_anchors,
-    )
+        class_exp = partial(
+            run_classification_experiment,
+            num_total_classes=num_total_classes,
+            classifier_embed_dim=global_cfg.classifier_embed_dim,
+        )
 
-    class_results_merged = class_exp(
-        train_dataset=merged_dataset_train,
-        test_dataset=merged_dataset_test,
-        use_relatives=True,
-        input_dim=num_anchors,
-    )
+        class_results_jumble = class_exp(
+            train_dataset=jumble_train,
+            test_dataset=jumble_test,
+            use_relatives=False,
+            input_dim=original_dataset_train["embedding"].shape[1],
+        )
 
-    class_results = {
-        "original_abs": class_results_original_abs,
-        "original_rel": class_results_original_rel,
-        "merged": class_results_merged,
-        "jumble": class_results_jumble,
-    }
+        class_results_original_abs = class_exp(
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=False,
+            input_dim=original_dataset_train["embedding"].shape[1],
+        )
 
-    return cka_results, class_results, knn_results
+        class_results_original_rel = class_exp(
+            train_dataset=original_dataset_train,
+            test_dataset=original_dataset_test,
+            use_relatives=True,
+            input_dim=num_anchors,
+        )
+
+        class_results_merged = class_exp(
+            train_dataset=merged_dataset_train,
+            test_dataset=merged_dataset_test,
+            use_relatives=True,
+            input_dim=num_anchors,
+        )
+
+        results["classification"] = {
+            "original_abs": class_results_original_abs,
+            "original_rel": class_results_original_rel,
+            "merged": class_results_merged,
+            "jumble": class_results_jumble,
+        }
+
+    return results, None
 
 
 def set_torch_format(data, num_tasks, modes, tensor_columns):

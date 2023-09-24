@@ -4,10 +4,11 @@ num_anchors: 256
 
 run_analysis:
   cka: True
-  classification: True
+  classification: False
   clustering: False
   qualitative: False
   knn: False
+  separability: True
 
 dataset_names:
   - cifar100
@@ -31,6 +32,7 @@ results_path:
   classification: ${results_folder}/class_analysis.json
   clustering: ${results_folder}/clustering_analysis.json
   plots: ${results_folder}/plots
+  separability: ${results_folder}/separability_analysis.json
 
 tag: ""
 

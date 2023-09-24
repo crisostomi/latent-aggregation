@@ -1,46 +1,29 @@
+import dataclasses
+import random
 from functools import partial
 from pathlib import Path
-import hydra
-from hydra import initialize, compose
-from typing import Dict, List
-
-import omegaconf
-from la.data.my_dataset_dict import MyDatasetDict
-from nn_core.common import PROJECT_ROOT
-from la.utils.io_utils import add_ids_to_dataset, load_data
-from la.utils.io_utils import preprocess_dataset
-import dataclasses
-from typing import List
-from nn_core.callbacks import NNTemplateCore
-from nn_core.model_logging import NNLogger
-from nn_core.serialization import NNCheckpointIO
-from datasets import Dataset, DatasetDict
-import pytorch_lightning as pl
-from pytorch_lightning import Trainer, seed_everything
-from torch.utils.data import DataLoader
-from pytorch_lightning import Callback
-from la.utils.utils import build_callbacks
-from torch.utils.data import DataLoader
-from la.data.my_dataset_dict import MyDatasetDict
-from tqdm import tqdm
-import dataclasses
-from typing import Union
-import random
-from hydra.utils import instantiate
-from la.utils.utils import get_checkpoint_callback
 from pydoc import locate
-from nn_core.serialization import load_model
-from typing import List
-from nn_core.callbacks import NNTemplateCore
-from nn_core.model_logging import NNLogger
-from nn_core.serialization import NNCheckpointIO
-import pytorch_lightning as pl
-from pytorch_lightning import Trainer
-from torch.utils.data import DataLoader
-from pytorch_lightning import Callback
-from la.pl_modules.classifier import Classifier
+from typing import Dict, List, Union
 
-from la.utils.utils import build_callbacks
+import hydra
+import omegaconf
+import pytorch_lightning as pl
+from datasets import Dataset, DatasetDict
+from hydra import compose, initialize
+from hydra.utils import instantiate
+from pytorch_lightning import Callback, Trainer, seed_everything
+from torch.utils.data import DataLoader
+from tqdm import tqdm
+
+from nn_core.callbacks import NNTemplateCore
+from nn_core.common import PROJECT_ROOT
+from nn_core.model_logging import NNLogger
+from nn_core.serialization import NNCheckpointIO, load_model
+
+from la.data.my_dataset_dict import MyDatasetDict
+from la.pl_modules.classifier import Classifier
+from la.utils.io_utils import add_ids_to_dataset, load_data, preprocess_dataset
+from la.utils.utils import build_callbacks, get_checkpoint_callback
 
 
 @dataclasses.dataclass
@@ -64,7 +47,6 @@ class Task:
 
 
 def run(cfg: omegaconf.DictConfig):
-
     seed_everything(cfg.seed)
 
     original_dataset = dataset = load_data(cfg)  # .shard(num_shards=10, index=0)
@@ -90,7 +72,6 @@ def run(cfg: omegaconf.DictConfig):
 
     # create new tasks, task_0 is the dummy task with all the dataset, remaining tasks will be composed
     # of K random classes each
-
     all_classes_task = Task(
         class_idxs=class_idxs,
         classes=class_names,
@@ -102,14 +83,13 @@ def run(cfg: omegaconf.DictConfig):
 
     tasks = [all_classes_task]
 
-    for i in range(cfg.num_tasks):
+    for _ in range(cfg.num_tasks):
         task = create_task(cfg.num_task_classes, dataset, class_names, class_idxs)
         tasks.append(task)
 
     loader_func = partial(DataLoader, batch_size=100, pin_memory=False, num_workers=8)
 
     for task in tasks:
-
         print(f"Training model for task {task.id}")
 
         num_classes = len(task.classes)

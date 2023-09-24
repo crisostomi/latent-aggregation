@@ -25,6 +25,7 @@ import la  # noqa
 from la.utils.cka import CKA
 from la.utils.class_analysis import Classifier, TaskEmbeddingModel
 from la.utils.relative_analysis import compare_merged_original_qualitative
+from la.utils.separability_analysis import compute_separabilities
 from la.utils.utils import add_tensor_column, save_dict_to_file
 from pytorch_lightning import Trainer
 from la.data.my_dataset_dict import MyDatasetDict
@@ -41,7 +42,7 @@ def run(cfg: DictConfig) -> str:
 
     all_results = {}
 
-    analyses = ["cka", "classification", "clustering", "knn"]
+    analyses = ["cka", "classification", "clustering", "knn", "separability"]
 
     for analysis in analyses:
         all_results[analysis] = {
@@ -152,6 +153,9 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
 
     assert torch.all(torch.eq(merged_dataset_test["id"], original_dataset_test["id"]))
 
+    jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
+    jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
+
     if global_cfg.run_analysis["qualitative"]:
         # qualitative comparison absolute -- merged
         plots_path = Path(global_cfg.plots_path) / dataset_name / model_name / f"partition-{partition_id}"
@@ -206,6 +210,28 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
             "merged": knn_results_merged,
         }
 
+    if global_cfg.run_analysis["separability"]:
+        all_classes = torch.unique(original_dataset_test["y"]).tolist()
+
+        separabilities_original = compute_separabilities(
+            original_dataset_test["embedding"], original_dataset_test["y"], all_classes
+        )
+        mean_separabilities_original = torch.mean(torch.tensor([s[2] for s in separabilities_original]))
+
+        separabilities_ours = compute_separabilities(
+            merged_dataset_test["relative_embeddings"], merged_dataset_test["y"], all_classes
+        )
+        mean_separability_ours = torch.mean(torch.tensor([s[2] for s in separabilities_ours]))
+        separabilities_naive = compute_separabilities(jumble_test["embedding"], jumble_test["y"], all_classes)
+
+        mean_separability_naive = torch.mean(torch.tensor([s[2] for s in separabilities_naive]))
+
+        results["separability"] = {
+            "mean_separability_ours": mean_separability_ours.item(),
+            "mean_separability_naive": mean_separability_naive.item(),
+            "mean_separability_original": mean_separabilities_original.item(),
+        }
+
     if global_cfg.run_analysis["classification"]:
         label_to_task = {
             int(label): i
@@ -234,8 +260,6 @@ def single_configuration_experiment(global_cfg: DictConfig, single_cfg: DictConf
             input_dim=task_onehot_dataset_train["embedding"].shape[1],
         )
 
-        jumble_train = concatenate_datasets([data[f"task_{i}_train"] for i in range(1, num_tasks + 1)])
-        jumble_test = concatenate_datasets([data[f"task_{i}_test"] for i in range(1, num_tasks + 1)])
         class_results_jumble = class_exp(
             train_dataset=jumble_train,
             test_dataset=jumble_test,

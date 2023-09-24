@@ -5,7 +5,9 @@ import random
 from functools import partial
 from pathlib import Path
 from typing import Tuple, Dict, List, Optional, Union
+from hydra.utils import instantiate
 
+import pytorch_lightning as pl
 import hydra
 import matplotlib.pyplot as plt
 import omegaconf
@@ -43,6 +45,7 @@ from la.utils.relative_analysis import (
 from la.utils.separability_analysis import compute_separabilities
 from la.utils.task_utils import get_shared_samples_ids, map_labels_to_global
 from la.utils.utils import add_tensor_column, save_dict_to_file, standard_normalization
+from torch.utils.data import DataLoader
 
 # plt.style.use("dark_background")
 
@@ -56,7 +59,7 @@ def run(cfg: DictConfig) -> str:
 
     all_results = {}
 
-    analyses = ["cka", "classification", "clustering"]
+    analyses = ["cka", "classification", "clustering", "separability"]
 
     for analysis in analyses:
         all_results[analysis] = {
@@ -304,15 +307,26 @@ def single_configuration_experiment(global_cfg, single_cfg, analysis_state):
         }
 
     if global_cfg.run_analysis.separability:
-        separabilities_ours = compute_separabilities(
-            merged_dataset["relative_embeddings"], merged_dataset["label"], non_shared_classes
+        separabilities_original = compute_separabilities(
+            original_dataset["embedding"], original_dataset["y"], non_shared_classes
         )
+        mean_separabilities_original = torch.mean(torch.tensor([s[2] for s in separabilities_original]))
+
+        separabilities_ours = compute_separabilities(
+            merged_dataset["relative_embeddings"], merged_dataset["y"], non_shared_classes
+        )
+        mean_separability_ours = torch.mean(torch.tensor([s[2] for s in separabilities_ours]))
         separabilities_naive = compute_separabilities(
-            jumble_dataset["embedding"], jumble_dataset["label"], non_shared_classes
+            jumble_dataset["embedding"], jumble_dataset["y"], non_shared_classes
         )
 
-        pylogger.info(separabilities_ours)
-        pylogger.info(separabilities_naive)
+        mean_separability_naive = torch.mean(torch.tensor([s[2] for s in separabilities_naive]))
+
+        results["separability"] = {
+            "mean_separability_ours": mean_separability_ours.item(),
+            "mean_separability_naive": mean_separability_naive.item(),
+            "mean_separability_original": mean_separabilities_original.item(),
+        }
 
     if global_cfg.run_analysis.classification:
         class_exp = partial(
@@ -338,6 +352,58 @@ def single_configuration_experiment(global_cfg, single_cfg, analysis_state):
             "jumble_abs": class_results_jumble,
             "merged": class_results_merged,
         }
+
+    # distill a new model on the merged space
+    if global_cfg.run_analysis.distillation:
+        transform_func = instantiate(global_cfg.model.transform_func)
+
+        merged_dataset.set_format("numpy", columns=["img"])
+
+        map_params = {
+            "function": lambda x: {"x": transform_func(x["img"])},
+            "writer_batch_size": 100,
+            "num_proc": 1,
+        }
+
+        merged_dataset = merged_dataset.map(desc=f"Transforming merged samples", **map_params)
+
+        model: pl.LightningModule = hydra.utils.instantiate(
+            global_cfg.model,
+            _recursive_=False,
+            num_classes=num_total_classes,
+            input_dim=merged_dataset["x"][0].shape[-1],
+        )
+
+        model = model.to("cuda")
+
+        merged_dataset = merged_dataset.rename_column("relative_embeddings", "teacher_embeds")
+
+        merged_dataset.set_format(type="torch", columns=["teacher_embeds", "y", "x"])
+
+        loader_func = partial(
+            torch.utils.data.DataLoader,
+            batch_size=512,
+            num_workers=8,
+        )
+
+        trainer_func = partial(Trainer, gpus=1, max_epochs=100, logger=False, enable_progress_bar=True)
+
+        # split dataset in train, val and test
+        split_dataset = merged_dataset.train_test_split(test_size=0.3, seed=42)
+        train_dataset = split_dataset["train"]
+        val_test_dataset = split_dataset["test"]
+
+        split_val_test = val_test_dataset.train_test_split(test_size=0.5, seed=42)
+        val_dataset = split_val_test["train"]
+        test_dataset = split_val_test["test"]
+
+        train_loader = loader_func(train_dataset, shuffle=True)
+        val_loader = loader_func(val_dataset, shuffle=False)
+        test_loader = loader_func(test_dataset, shuffle=False)
+
+        trainer = trainer_func()
+        trainer.fit(model, train_loader, val_loader)
+        trainer.test(model, test_loader)
 
     return results, analysis_state
 

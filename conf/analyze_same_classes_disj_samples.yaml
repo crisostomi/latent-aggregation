@@ -3,12 +3,20 @@ deterministic: False
 num_anchors: 256
 
 
-tag: ""
-results_path: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples
-cka_results_path: ${results_path}/cka_analysis_A${num_anchors}${tag}.json
-class_results_path: ${results_path}/class_analysis_A${num_anchors}${tag}.json
-knn_results_path: ${results_path}/knn_analysis_A${num_anchors}${tag}.json
-plots_path: ${results_path}/plots
+results_folder: ${oc.env:PROJECT_ROOT}/results/same_classes_disj_samples
+results_path:
+  cka: ${results_folder}/cka_analysis.json
+  classification: ${results_folder}/class_analysis.json
+  clustering: ${results_folder}/clustering_analysis.json
+  plots: ${results_folder}/plots
+  separability: ${results_folder}/separability_analysis.json
+
+run_analysis:
+  cka: False
+  classification: False
+  clustering: False
+  qualitative: False
+  separability: True
 
 has_coarse_label:
   cifar100: True
@@ -21,8 +29,8 @@ dataset_names:
 model_names:
   - efficient_net
   - from_scratch_cnn
-  - resnet
-  - shake_resnet
+  # - resnet
+  # - shake_resnet
 
 num_total_classes:
   cifar100: 100

@@ -42,6 +42,7 @@ from pytorch_lightning import Callback
 from la.pl_modules.classifier import Classifier
 import logging
 from la.utils.utils import build_callbacks
+import json
 
 pylogger = logging.getLogger(__name__)
 
@@ -75,24 +76,21 @@ class Result:
 
 
 def run(cfg: omegaconf.DictConfig):
-
     seed_everything(cfg.seed)
 
     subtasks, global_task = load_existing_tasks(Path(cfg.subtask_embedding_path), cfg.num_task_classes)
 
-    all_performances = []
+    all_performances = {task.id: {} for task in subtasks}
 
     global_dataset = global_task.embedded_dataset
     global_dataset.set_format(type="torch", columns=["embeds", "y"])
 
     for task in subtasks:
-
         task_dataset = task.embedded_dataset
         task_dataset.set_format(type="torch", columns=["embeds", "y"])
 
-        performances = run_classification_on_space(task, task_dataset, len(task.classes), cfg)
-
-        pylogger.info(performances)
+        # performance of a classifier trained on the task-specific class set
+        task_specific_performances = run_classification_on_space(task, task_dataset, len(task.classes), cfg)
 
         task_subspace_in_global_space = global_dataset.filter(lambda row: row["y"].item() in task.class_idxs)
 
@@ -100,16 +98,30 @@ def run(cfg: omegaconf.DictConfig):
         task_subspace_in_global_space = task_subspace_in_global_space.map(
             lambda row: {"y": global_to_local[row["y"].item()], "embeds": row["embeds"]},
         )
-        performances = run_classification_on_space(task, task_subspace_in_global_space, len(task.classes), cfg)
 
-        pylogger.info(performances)
+        # performance of a classifier trained on the subregion of the global space corresponding to the task-specific class set
+        restricted_performances = run_classification_on_space(
+            task, task_subspace_in_global_space, len(task.classes), cfg
+        )
+
+        all_performances[task.id] = {
+            "task_specific_test_acc": task_specific_performances.score,
+            "restricted_test_acc": restricted_performances.score,
+        }
+
+    Path(cfg.results_path).parent.mkdir(parents=True, exist_ok=True)
+    with open(cfg.results_path, "w+") as f:
+        json.dump(all_performances, f)
 
 
-def load_existing_tasks(subtask_dataset_path, num_task_classes):
+def load_existing_tasks(subtask_dataset_path: str, num_task_classes: int):
+    """
+    Load existing tasks from a directory of subtask datasets.
+    Returns both the global task over all the classes and the subtasks on the subsets of classes.
+    """
     subtasks = []
     global_task = None
     for dataset_path in subtask_dataset_path.glob("*"):
-
         dataset = MyDatasetDict.load_from_disk(dataset_path)
 
         task = Task(
@@ -125,6 +137,9 @@ def load_existing_tasks(subtask_dataset_path, num_task_classes):
             continue
 
         if len(task.classes) != num_task_classes:
+            pylogger.info(
+                f"Number of task classes {len(task.classes)} is different from expected number {num_task_classes}"
+            )
             continue
 
         subtasks.append(task)
@@ -179,25 +194,11 @@ def run_classification_on_space(task, dataset, num_classes, cfg):
     classifier_model = trainer.model.eval().cpu().requires_grad_(False)
     run_results = trainer.test(model=classifier_model, dataloaders=eval_test_loader)[0]
 
-    return (
-        Result(
-            task_id=task.id,
-            num_train_classes=len(task.classes),
-            metric_name="test_accuracy",
-            score=run_results["accuracy"],
-        ),
-        Result(
-            task_id=task.id,
-            num_train_classes=len(task.classes),
-            metric_name="test_f1",
-            score=run_results["f1"],
-        ),
-        Result(
-            task_id=task.id,
-            num_train_classes=len(task.classes),
-            metric_name="test_loss",
-            score=run_results["test_loss"],
-        ),
+    return Result(
+        task_id=task.id,
+        num_train_classes=len(task.classes),
+        metric_name="test_accuracy",
+        score=run_results["accuracy"],
     )
 
 
