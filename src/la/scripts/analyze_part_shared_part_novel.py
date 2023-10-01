@@ -357,28 +357,27 @@ def single_configuration_experiment(global_cfg, single_cfg, analysis_state):
     if global_cfg.run_analysis.distillation:
         transform_func = instantiate(global_cfg.model.transform_func)
 
-        merged_dataset.set_format("numpy", columns=["img"])
-
         map_params = {
             "function": lambda x: {"x": transform_func(x["img"])},
             "writer_batch_size": 100,
             "num_proc": 1,
         }
 
-        merged_dataset = merged_dataset.map(desc=f"Transforming merged samples", **map_params)
+        for mode in ["train", "test"]:
+            merged_datasets[mode] = merged_datasets[mode].map(desc=f"Transforming merged samples", **map_params)
+            merged_datasets[mode] = merged_datasets[mode].rename_column("relative_embeddings", "teacher_embeds")
+            merged_datasets[mode].set_format(type="torch", columns=["teacher_embeds", "y", "x"])
+
+        anchors = merged_datasets[f"train"].sort("id").select(anchor_ids)
+        merged_dataset_train = merged_datasets["train"]
 
         model: pl.LightningModule = hydra.utils.instantiate(
             global_cfg.model,
             _recursive_=False,
             num_classes=num_total_classes,
-            input_dim=merged_dataset["x"][0].shape[-1],
+            input_dim=merged_dataset_train["x"][0].shape[-1],
+            anchors=anchors,
         )
-
-        model = model.to("cuda")
-
-        merged_dataset = merged_dataset.rename_column("relative_embeddings", "teacher_embeds")
-
-        merged_dataset.set_format(type="torch", columns=["teacher_embeds", "y", "x"])
 
         loader_func = partial(
             torch.utils.data.DataLoader,
@@ -388,18 +387,16 @@ def single_configuration_experiment(global_cfg, single_cfg, analysis_state):
 
         trainer_func = partial(Trainer, gpus=1, max_epochs=100, logger=False, enable_progress_bar=True)
 
-        # split dataset in train, val and test
-        split_dataset = merged_dataset.train_test_split(test_size=0.3, seed=42)
+        # split dataset in train and val
+        split_dataset = merged_dataset_train.train_test_split(test_size=0.1, seed=42)
         train_dataset = split_dataset["train"]
-        val_test_dataset = split_dataset["test"]
-
-        split_val_test = val_test_dataset.train_test_split(test_size=0.5, seed=42)
-        val_dataset = split_val_test["train"]
-        test_dataset = split_val_test["test"]
+        val_dataset = split_dataset["test"]
 
         train_loader = loader_func(train_dataset, shuffle=True)
         val_loader = loader_func(val_dataset, shuffle=False)
-        test_loader = loader_func(test_dataset, shuffle=False)
+
+        merged_dataset_test = merged_datasets["test"]
+        test_loader = loader_func(merged_dataset_test, shuffle=False)
 
         trainer = trainer_func()
         trainer.fit(model, train_loader, val_loader)

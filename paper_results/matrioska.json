@@ -1,0 +1,110 @@
+[
+    {
+        "matrioska_idx": 3,
+        "num_train_classes": 5,
+        "metric_name": "test_accuracy",
+        "score": 0.7440000176
+    },
+    {
+        "matrioska_idx": 4,
+        "num_train_classes": 6,
+        "metric_name": "test_accuracy",
+        "score": 0.7319999933
+    },
+    {
+        "matrioska_idx": 5,
+        "num_train_classes": 7,
+        "metric_name": "test_accuracy",
+        "score": 0.7799999714
+    },
+    {
+        "matrioska_idx": 6,
+        "num_train_classes": 8,
+        "metric_name": "test_accuracy",
+        "score": 0.7599999905
+    },
+    {
+        "matrioska_idx": 7,
+        "num_train_classes": 9,
+        "metric_name": "test_accuracy",
+        "score": 0.7820000052
+    },
+    {
+        "matrioska_idx": 8,
+        "num_train_classes": 10,
+        "metric_name": "test_accuracy",
+        "score": 0.7580000162
+    },
+    {
+        "matrioska_idx": 9,
+        "num_train_classes": 11,
+        "metric_name": "test_accuracy",
+        "score": 0.7659999728
+    },
+    {
+        "matrioska_idx": 10,
+        "num_train_classes": 12,
+        "metric_name": "test_accuracy",
+        "score": 0.7720000148
+    },
+    {
+        "matrioska_idx": 11,
+        "num_train_classes": 13,
+        "metric_name": "test_accuracy",
+        "score": 0.7979999781
+    },
+    {
+        "matrioska_idx": 12,
+        "num_train_classes": 14,
+        "metric_name": "test_accuracy",
+        "score": 0.7680000067
+    },
+    {
+        "matrioska_idx": 13,
+        "num_train_classes": 15,
+        "metric_name": "test_accuracy",
+        "score": 0.8100000024
+    },
+    {
+        "matrioska_idx": 14,
+        "num_train_classes": 16,
+        "metric_name": "test_accuracy",
+        "score": 0.7839999795
+    },
+    {
+        "matrioska_idx": 15,
+        "num_train_classes": 17,
+        "metric_name": "test_accuracy",
+        "score": 0.7779999971
+    },
+    {
+        "matrioska_idx": 16,
+        "num_train_classes": 18,
+        "metric_name": "test_accuracy",
+        "score": 0.7519999743
+    },
+    {
+        "matrioska_idx": 17,
+        "num_train_classes": 19,
+        "metric_name": "test_accuracy",
+        "score": 0.7779999971
+    },
+    {
+        "matrioska_idx": 18,
+        "num_train_classes": 20,
+        "metric_name": "test_accuracy",
+        "score": 0.7659999728
+    },
+    {
+        "matrioska_idx": 19,
+        "num_train_classes": 21,
+        "metric_name": "test_accuracy",
+        "score": 0.7879999876
+    },
+    {
+        "matrioska_idx": 20,
+        "num_train_classes": 22,
+        "metric_name": "test_accuracy",
+        "score": 0.7720000148
+    }
+]

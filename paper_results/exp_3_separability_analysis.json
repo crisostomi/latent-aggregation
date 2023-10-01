@@ -1,0 +1,70 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "1": {
+                "mean_separability_ours": 2.0990073680877686,
+                "mean_separability_naive": 1.7310172319412231,
+                "mean_separability_original": 1.4477342367172241
+            },
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "from_scratch_cnn": {
+            "1": {
+                "mean_separability_ours": 1.1815038919448853,
+                "mean_separability_naive": 0.9528600573539734,
+                "mean_separability_original": 0.8136871457099915
+            },
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "resnet": {
+            "1": {},
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "shake_resnet": {
+            "1": {},
+            "2": {},
+            "3": {},
+            "4": {}
+        }
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "1": {
+                "mean_separability_ours": 1.765779733657837,
+                "mean_separability_naive": 1.525396466255188,
+                "mean_separability_original": 1.2642179727554321
+            },
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "from_scratch_cnn": {
+            "1": {
+                "mean_separability_ours": 1.0261573791503906,
+                "mean_separability_naive": 0.855265200138092,
+                "mean_separability_original": 0.7681565880775452
+            },
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "resnet": {
+            "1": {},
+            "2": {},
+            "3": {},
+            "4": {}
+        },
+        "shake_resnet": {
+            "1": {},
+            "2": {},
+            "3": {},
+            "4": {}
+        }
+    }
+}

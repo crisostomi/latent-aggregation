@@ -1,0 +1,138 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "S80": {
+                "N10": {
+                    "mean_separability_ours": 1.7346019744873047,
+                    "mean_separability_naive": 1.1564232110977173,
+                    "mean_separability_original": 1.329272747039795
+                },
+                "N5": {
+                    "mean_separability_ours": 1.7626006603240967,
+                    "mean_separability_naive": 1.1213940382003784,
+                    "mean_separability_original": 1.329272747039795
+                }
+            },
+            "S60": {
+                "N10": {
+                    "mean_separability_ours": 1.9359869956970215,
+                    "mean_separability_naive": 1.2277449369430542,
+                    "mean_separability_original": 1.3602200746536255
+                },
+                "N5": {
+                    "mean_separability_ours": 1.899744987487793,
+                    "mean_separability_naive": 1.2329843044281006,
+                    "mean_separability_original": 1.3602200746536255
+                }
+            },
+            "S40": {
+                "N10": {
+                    "mean_separability_ours": 1.969421625137329,
+                    "mean_separability_naive": 1.4159451723098755,
+                    "mean_separability_original": 1.3693805932998657
+                },
+                "N5": {
+                    "mean_separability_ours": 1.975398302078247,
+                    "mean_separability_naive": 1.4395599365234375,
+                    "mean_separability_original": 1.3693805932998657
+                }
+            },
+            "S20": {
+                "N10": {
+                    "mean_separability_ours": 2.1543681621551514,
+                    "mean_separability_naive": 1.7296464443206787,
+                    "mean_separability_original": 1.3742190599441528
+                },
+                "N5": {
+                    "mean_separability_ours": 2.2695891857147217,
+                    "mean_separability_naive": 1.8423649072647095,
+                    "mean_separability_original": 1.3742190599441528
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S80": {
+                "N10": {
+                    "mean_separability_ours": 1.0856112241744995,
+                    "mean_separability_naive": 0.7898449897766113,
+                    "mean_separability_original": 0.8243125677108765
+                },
+                "N5": {
+                    "mean_separability_ours": 1.126679539680481,
+                    "mean_separability_naive": 0.7934996485710144,
+                    "mean_separability_original": 0.7977063655853271
+                }
+            },
+            "S60": {
+                "N10": {
+                    "mean_separability_ours": 1.104685664176941,
+                    "mean_separability_naive": 0.7905278205871582,
+                    "mean_separability_original": 0.8213295936584473
+                },
+                "N5": {
+                    "mean_separability_ours": 1.1007307767868042,
+                    "mean_separability_naive": 0.7958158850669861,
+                    "mean_separability_original": 0.828200101852417
+                }
+            },
+            "S40": {
+                "N10": {
+                    "mean_separability_ours": 1.159322738647461,
+                    "mean_separability_naive": 0.8387093544006348,
+                    "mean_separability_original": 0.8214609622955322
+                },
+                "N5": {
+                    "mean_separability_ours": 1.1693626642227173,
+                    "mean_separability_naive": 0.866967499256134,
+                    "mean_separability_original": 0.8028962016105652
+                }
+            },
+            "S20": {
+                "N10": {
+                    "mean_separability_ours": 1.2058957815170288,
+                    "mean_separability_naive": 1.0012933015823364,
+                    "mean_separability_original": 0.8254221081733704
+                },
+                "N5": {
+                    "mean_separability_ours": 1.192328691482544,
+                    "mean_separability_naive": 1.0116738080978394,
+                    "mean_separability_original": 0.8280884623527527
+                }
+            }
+        }
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "S100": {
+                "N25": {
+                    "mean_separability_ours": 1.6513265371322632,
+                    "mean_separability_naive": 1.1932847499847412,
+                    "mean_separability_original": 1.2348301410675049
+                }
+            },
+            "S50": {
+                "N25": {
+                    "mean_separability_ours": 1.7445155382156372,
+                    "mean_separability_naive": 1.3921939134597778,
+                    "mean_separability_original": 1.2353965044021606
+                }
+            }
+        },
+        "vanilla_cnn": {
+            "S100": {
+                "N25": {
+                    "mean_separability_ours": 1.0335676670074463,
+                    "mean_separability_naive": 0.7659435272216797,
+                    "mean_separability_original": 0.774696409702301
+                }
+            },
+            "S50": {
+                "N25": {
+                    "mean_separability_ours": 1.0504263639450073,
+                    "mean_separability_naive": 0.8316207528114319,
+                    "mean_separability_original": 0.7853336334228516
+                }
+            }
+        }
+    }
+}

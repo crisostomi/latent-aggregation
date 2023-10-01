@@ -2,8 +2,10 @@ from math import floor
 
 from torch import nn
 
+from la.utils.class_analysis import Classifier
 
-class CNN(nn.Module):
+
+class RelativeCNN(nn.Module):
     def __init__(
         self,
         num_classes: int,
@@ -14,7 +16,7 @@ class CNN(nn.Module):
         *args,
         **kwargs
     ):
-        super(CNN, self).__init__()
+        super(RelativeCNN, self).__init__()
         self.backbone = nn.Sequential(
             nn.Conv2d(
                 in_channels=3,
@@ -40,22 +42,24 @@ class CNN(nn.Module):
         C = num_out_channels
 
         self.proj = nn.Linear(H * W * C, embedding_dim)
-        # self.final_activation = nn.Sigmoid()
-        self.out = nn.Linear(embedding_dim, num_classes)
 
-    def forward(self, x):
+        self.out = Classifier(embedding_dim, embedding_dim, num_classes)
+
+    def forward(self, x, anchors):
         # (batch_size, num_channels, width, height)
 
         x = self.backbone(x)
+        anchors = self.backbone(anchors)
 
         # (batch_size, 32 * 8 * 8)
         x = x.reshape(x.size(0), -1)
+        anchors = anchors.reshape(anchors.size(0), -1)
 
         embeds = self.proj(x)
+        anchor_embeds = self.proj(anchors)
 
-        relative_embeds = embeds @ embeds.t()
-        # x = self.final_activation(embeds)
+        relative_embeds = embeds @ anchor_embeds.t()
 
         logits = self.out(relative_embeds)
 
-        return {"embeds": relative_embeds, "logits": logits}
+        return {"relative_embeds": relative_embeds, "logits": logits}

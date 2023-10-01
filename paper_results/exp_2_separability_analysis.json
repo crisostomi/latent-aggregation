@@ -1,0 +1,26 @@
+{
+    "cifar100": {
+        "efficient_net": {
+            "mean_separability_ours": 1.7633347511291504,
+            "mean_separability_naive": 1.3262608051300049,
+            "mean_separability_original": 1.4477342367172241
+        },
+        "from_scratch_cnn": {
+            "mean_separability_ours": 1.0693488121032715,
+            "mean_separability_naive": 0.733023464679718,
+            "mean_separability_original": 0.7854803204536438
+        }
+    },
+    "tiny_imagenet": {
+        "efficient_net": {
+            "mean_separability_ours": 1.5216912031173706,
+            "mean_separability_naive": 1.2334049940109253,
+            "mean_separability_original": 1.2642179727554321
+        },
+        "from_scratch_cnn": {
+            "mean_separability_ours": 0.9857891201972961,
+            "mean_separability_naive": 0.6973971724510193,
+            "mean_separability_original": 0.7627743482589722
+        }
+    }
+}
