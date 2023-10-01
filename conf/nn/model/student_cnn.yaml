@@ -1,0 +1,22 @@
+_target_: la.pl_modules.from_scratch_cnn.FromScratchCNN
+name: from_scratch_cnn
+input_dim: ???
+
+model:
+    _target_: la.modules.vanilla_cnn_student.StudentCNN
+    num_classes: ???
+    input_dim: ???
+    num_interm_channels: 16
+    num_out_channels: 32
+    embedding_dim: 128 # 256
+
+optimizer:
+  _target_: torch.optim.Adam
+
+transform_func:
+  _target_: torchvision.transforms.Compose
+  transforms:
+    - _target_: torchvision.transforms.ToTensor
+    - _target_: torchvision.transforms.Normalize
+      mean: [0.485, 0.456, 0.406]
+      std: [0.229, 0.224, 0.225]
