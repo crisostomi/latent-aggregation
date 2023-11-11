@@ -1,4 +1,4 @@
-_target_: la.pl_modules.from_scratch_cnn.FromScratchCNN
+_target_: la.pl_modules.student_pl_module.StudentPLModule
 name: from_scratch_cnn
 input_dim: ???
 
